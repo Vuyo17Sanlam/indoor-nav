@@ -15,7 +15,7 @@ function throttle(func, limit) {
   };
 }
 
-// Start Point Icon Component (without circular shape)
+// Start Point Icon Component - Blue pulsing dot (like Google Maps current location)
 const StartIcon = memo(({ position, cellWidth, cellHeight }) => {
   if (!position) return null;
 
@@ -27,43 +27,64 @@ const StartIcon = memo(({ position, cellWidth, cellHeight }) => {
     <div
       style={{
         position: "absolute",
-        left: centerX - 16,
-        top: centerY - 16,
-        width: 32,
-        height: 32,
+        left: centerX - 20,
+        top: centerY - 20,
+        width: 40,
+        height: 40,
         pointerEvents: "none",
         zIndex: 15,
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
-        filter: "drop-shadow(0 2px 4px rgba(0, 0, 0, 0.3))",
       }}
     >
-      <svg width="32" height="32" viewBox="0 0 24 24" fill="none">
-        {/* Green location icon */}
-        <path
-          d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"
-          fill="#10B981"
-          stroke="#059669"
-          strokeWidth="1.5"
-        />
-        {/* Optional subtle outer ring */}
-        <circle
-          cx="12"
-          cy="12"
-          r="11"
-          stroke="rgba(16, 185, 129, 0.3)"
-          strokeWidth="0.5"
-          fill="none"
-        />
-      </svg>
+      {/* Pulsing outer ring */}
+      <div
+        style={{
+          position: "absolute",
+          width: 40,
+          height: 40,
+          borderRadius: "50%",
+          background: "rgba(66, 133, 244, 0.2)",
+          animation: "pulse 2s ease-in-out infinite",
+        }}
+      />
+      {/* Middle ring */}
+      <div
+        style={{
+          position: "absolute",
+          width: 24,
+          height: 24,
+          borderRadius: "50%",
+          background: "rgba(66, 133, 244, 0.3)",
+          border: "2px solid rgba(66, 133, 244, 0.5)",
+        }}
+      />
+      {/* Center blue dot */}
+      <div
+        style={{
+          position: "absolute",
+          width: 14,
+          height: 14,
+          borderRadius: "50%",
+          background: "#4285F4",
+          border: "3px solid white",
+          boxShadow: "0 2px 6px rgba(0, 0, 0, 0.3)",
+        }}
+      />
+      <style>{`
+        @keyframes pulse {
+          0%, 100% { transform: scale(1); opacity: 1; }
+          50% { transform: scale(1.3); opacity: 0.5; }
+        }
+      `}</style>
     </div>
   );
 });
 
 StartIcon.displayName = "StartIcon";
 
-// Destination Icon Component (without circular shape)
+// Destination Icon Component - Red pin marker (like Google Maps destination)
 const DestinationIcon = memo(({ position, cellWidth, cellHeight }) => {
   if (!position) return null;
 
@@ -76,34 +97,27 @@ const DestinationIcon = memo(({ position, cellWidth, cellHeight }) => {
       style={{
         position: "absolute",
         left: centerX - 16,
-        top: centerY - 16,
+        top: centerY - 40,
         width: 32,
-        height: 32,
+        height: 40,
         pointerEvents: "none",
         zIndex: 15,
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
-        filter: "drop-shadow(0 2px 4px rgba(0, 0, 0, 0.3))",
+        filter: "drop-shadow(0 3px 6px rgba(0, 0, 0, 0.4))",
       }}
     >
-      <svg width="32" height="32" viewBox="0 0 24 24" fill="none">
-        {/* Red location icon - same shape as start but red */}
+      <svg width="32" height="40" viewBox="0 0 32 40" fill="none">
+        {/* Red pin marker */}
         <path
-          d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"
-          fill="#EF4444"
-          stroke="#DC2626"
-          strokeWidth="1.5"
+          d="M16 0C7.16 0 0 7.16 0 16c0 12 16 24 16 24s16-12 16-24c0-8.84-7.16-16-16-16z"
+          fill="#EA4335"
         />
-        {/* Optional subtle outer ring */}
-        <circle
-          cx="12"
-          cy="12"
-          r="11"
-          stroke="rgba(239, 68, 68, 0.3)"
-          strokeWidth="0.5"
-          fill="none"
-        />
+        {/* White inner circle */}
+        <circle cx="16" cy="16" r="6" fill="white" />
+        {/* Highlight */}
+        <ellipse cx="12" cy="10" rx="3" ry="4" fill="rgba(255,255,255,0.3)" />
       </svg>
     </div>
   );
@@ -253,8 +267,8 @@ const SleekAnimatedPath = memo(
         });
 
         // Ultra slim background path
-        ctx.strokeStyle = "rgba(59, 130, 246, 0.1)";
-        ctx.lineWidth = 2;
+        ctx.strokeStyle = "rgba(59, 130, 246, 0.3)";
+        ctx.lineWidth = 8;
         ctx.lineCap = "round";
         ctx.lineJoin = "round";
         ctx.stroke();
@@ -303,13 +317,13 @@ const SleekAnimatedPath = memo(
         gradient.addColorStop(1, "rgba(29, 78, 216, 1)");
 
         ctx.strokeStyle = gradient;
-        ctx.lineWidth = 3; // Slimmer line
+        ctx.lineWidth = 6; // Thicker, more visible line
         ctx.lineCap = "round";
         ctx.lineJoin = "round";
 
         // Subtle shadow for depth
-        ctx.shadowColor = "rgba(59, 130, 246, 0.3)";
-        ctx.shadowBlur = 8;
+        ctx.shadowColor = "rgba(59, 130, 246, 0.5)";
+        ctx.shadowBlur = 12;
         ctx.shadowOffsetX = 0;
         ctx.shadowOffsetY = 1;
         ctx.stroke();
@@ -612,8 +626,16 @@ function App() {
   const [endNode, setEndNode] = useState(null);
   const [path, setPath] = useState([]);
   const [imgSize, setImgSize] = useState({ width: 0, height: 0 });
-  const [activeTab, setActiveTab] = useState("locations");
+  const [activeTab, setActiveTab] = useState("roofRef");
   const [stats, setStats] = useState({ totalNodes: 0, offices: 0, rooms: 0 });
+
+  // Roof Reference Navigation State
+  const [startRoofRef, setStartRoofRef] = useState(null);
+  const [endRoofRef, setEndRoofRef] = useState(null);
+  
+  // Roof References Data
+  const [roofRefs, setRoofRefs] = useState([]);
+  const [roofRefSearch, setRoofRefSearch] = useState(""); // Search filter
 
   // Simplified zoom state
   const [zoomState, setZoomState] = useState({
@@ -629,6 +651,32 @@ function App() {
   const lastPathLength = useRef(0);
   const hasZoomedToPath = useRef(false);
   const pathCacheRef = useRef(new Map()); // Cache for pathfinding results
+
+  // Load roof refs from file on startup, fallback to localStorage
+  useEffect(() => {
+    fetch("/roofRefs.json")
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.roofRefs && data.roofRefs.length > 0) {
+          setRoofRefs(data.roofRefs);
+          // Also update localStorage
+          localStorage.setItem("roofRefs", JSON.stringify(data.roofRefs));
+        } else {
+          // Fallback to localStorage if file is empty
+          const saved = localStorage.getItem("roofRefs");
+          if (saved) {
+            setRoofRefs(JSON.parse(saved));
+          }
+        }
+      })
+      .catch(() => {
+        // If file doesn't exist, try localStorage
+        const saved = localStorage.getItem("roofRefs");
+        if (saved) {
+          setRoofRefs(JSON.parse(saved));
+        }
+      });
+  }, []);
 
   useEffect(() => {
     fetch("/grid.json")
@@ -921,6 +969,50 @@ function App() {
     }
   }
 
+  // Navigate between roof references
+  function handleRoofRefNavigation(startCode, endCode) {
+    const startRef = roofRefs.find(r => r.code === startCode);
+    const endRef = roofRefs.find(r => r.code === endCode);
+    
+    if (startRef && endRef) {
+      setStartRoofRef(startRef);
+      setEndRoofRef(endRef);
+      
+      const cacheKey = `roof-${startRef.row},${startRef.col}-${endRef.row},${endRef.col}`;
+      let shortest = pathCacheRef.current.get(cacheKey);
+      if (!shortest) {
+        shortest = bfs(grid, [startRef.row, startRef.col], [endRef.row, endRef.col]);
+        pathCacheRef.current.set(cacheKey, shortest);
+      }
+      setPath(shortest);
+      // Clear other navigation modes
+      setStart(null);
+      setEnd(null);
+      setStartNode(null);
+      setEndNode(null);
+      hasZoomedToPath.current = false;
+    }
+  }
+
+  // Sort roof refs naturally (A0, A1, A2, A10, B1, etc.) - alphabetically then numerically
+  const sortedRoofRefs = [...roofRefs].sort((a, b) => {
+    const aLetter = a.code.match(/^[A-Z]+/)?.[0] || '';
+    const bLetter = b.code.match(/^[A-Z]+/)?.[0] || '';
+    
+    if (aLetter !== bLetter) {
+      return aLetter.localeCompare(bLetter);
+    }
+    
+    const aNum = parseInt(a.code.match(/\d+/)?.[0] || '0');
+    const bNum = parseInt(b.code.match(/\d+/)?.[0] || '0');
+    return aNum - bNum;
+  });
+
+  // Filter roof refs by search term
+  const filteredRoofRefs = sortedRoofRefs.filter(ref =>
+    ref.code.toLowerCase().includes(roofRefSearch.toLowerCase())
+  );
+
   const rowToLetter = (r) => String.fromCharCode(65 + r);
   const getCoord = (r, c) => `${rowToLetter(r)}${c + 1}`;
 
@@ -929,6 +1021,8 @@ function App() {
     setEnd(null);
     setStartNode(null);
     setEndNode(null);
+    setStartRoofRef(null);
+    setEndRoofRef(null);
     setPath([]);
     resetZoom();
   };
@@ -975,6 +1069,13 @@ function App() {
             <h3>Navigation Mode</h3>
             <div className="mode-selector">
               <button
+                className={`mode-btn ${activeTab === "roofRef" ? "active" : ""}`}
+                onClick={() => setActiveTab("roofRef")}
+              >
+                <span className="mode-icon">🏷️</span>
+                <span>Roof Ref</span>
+              </button>
+              <button
                 className={`mode-btn ${activeTab === "locations" ? "active" : ""}`}
                 onClick={() => setActiveTab("locations")}
               >
@@ -997,14 +1098,14 @@ function App() {
               <div className="info-row">
                 <span className="info-label">Start:</span>
                 <span className="info-value">
-                  {startNode?.name ||
+                  {startRoofRef?.code || startNode?.name ||
                     (start ? getCoord(start[0], start[1]) : "Select a point")}
                 </span>
               </div>
               <div className="info-row">
                 <span className="info-label">Destination:</span>
                 <span className="info-value">
-                  {endNode?.name ||
+                  {endRoofRef?.code || endNode?.name ||
                     (end ? getCoord(end[0], end[1]) : "Select a point")}
                 </span>
               </div>
@@ -1176,9 +1277,10 @@ function App() {
                   )}
 
                   {/* Start Icon */}
-                  {(start || startNode) && (
+                  {(start || startNode || startRoofRef) && (
                     <StartIcon
                       position={
+                        startRoofRef ? [startRoofRef.row, startRoofRef.col] :
                         start || (startNode && [startNode.row, startNode.col])
                       }
                       cellWidth={cellWidth}
@@ -1187,9 +1289,12 @@ function App() {
                   )}
 
                   {/* Destination Icon */}
-                  {(end || endNode) && (
+                  {(end || endNode || endRoofRef) && (
                     <DestinationIcon
-                      position={end || (endNode && [endNode.row, endNode.col])}
+                      position={
+                        endRoofRef ? [endRoofRef.row, endRoofRef.col] :
+                        end || (endNode && [endNode.row, endNode.col])
+                      }
                       cellWidth={cellWidth}
                       cellHeight={cellHeight}
                     />
@@ -1237,10 +1342,74 @@ function App() {
         <div className="right-sidebar">
           <div className="sidebar-section">
             <h3>
-              {activeTab === "locations" ? "📍 Locations" : "🗺️ Grid Points"}
+              {activeTab === "roofRef" ? "🏷️ Roof References" : activeTab === "locations" ? "📍 Locations" : "🗺️ Grid Points"}
             </h3>
 
-            {activeTab === "locations" ? (
+            {activeTab === "roofRef" ? (
+              <div className="locations-list">
+                {/* Search Input */}
+                <div style={{ marginBottom: '10px' }}>
+                  <input
+                    type="text"
+                    placeholder="🔍 Search roof ref (e.g., A1, B2)..."
+                    value={roofRefSearch}
+                    onChange={(e) => setRoofRefSearch(e.target.value)}
+                    style={{
+                      width: '100%',
+                      padding: '10px 12px',
+                      fontSize: '14px',
+                      border: '1px solid #4b5563',
+                      borderRadius: '6px',
+                      background: '#1f2937',
+                      color: 'white',
+                      outline: 'none',
+                      boxSizing: 'border-box'
+                    }}
+                  />
+                </div>
+                <div className="list-header">
+                  <span>Code ({filteredRoofRefs.length} results)</span>
+                </div>
+                <div className="scrollable-list">
+                  {filteredRoofRefs.length > 0 ? (
+                    filteredRoofRefs.map((ref) => (
+                      <div
+                        key={ref.code}
+                        className={`location-item ${startRoofRef?.code === ref.code ? "selected-start" : ""} ${endRoofRef?.code === ref.code ? "selected-end" : ""}`}
+                        onClick={() => {
+                          if (!startRoofRef) {
+                            setStartRoofRef(ref);
+                            // Clear other navigation modes
+                            setStart(null);
+                            setEnd(null);
+                            setStartNode(null);
+                            setEndNode(null);
+                            setPath([]);
+                            hasZoomedToPath.current = false;
+                          } else if (!endRoofRef) {
+                            setEndRoofRef(ref);
+                            handleRoofRefNavigation(startRoofRef.code, ref.code);
+                          } else {
+                            setStartRoofRef(ref);
+                            setEndRoofRef(null);
+                            setPath([]);
+                            resetZoom();
+                          }
+                        }}
+                        style={{ cursor: "pointer" }}
+                      >
+                        <div className="location-info">
+                          <div className="location-name" style={{ fontSize: "16px", fontWeight: "bold" }}>{ref.code}</div>
+                        </div>
+                        <div className="location-icon">🏷️</div>
+                      </div>
+                    ))
+                  ) : (
+                    <p>No roof references available</p>
+                  )}
+                </div>
+              </div>
+            ) : activeTab === "locations" ? (
               <div className="locations-list">
                 <div className="list-header">
                   <span>Name</span>
