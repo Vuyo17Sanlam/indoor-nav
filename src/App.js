@@ -632,10 +632,13 @@ function App() {
   // Roof Reference Navigation State
   const [startRoofRef, setStartRoofRef] = useState(null);
   const [endRoofRef, setEndRoofRef] = useState(null);
-  
+
   // Roof References Data
   const [roofRefs, setRoofRefs] = useState([]);
   const [roofRefSearch, setRoofRefSearch] = useState(""); // Search filter
+
+  // Locations Search State
+  const [locationsSearch, setLocationsSearch] = useState("");
 
   // Simplified zoom state
   const [zoomState, setZoomState] = useState({
@@ -971,17 +974,21 @@ function App() {
 
   // Navigate between roof references
   function handleRoofRefNavigation(startCode, endCode) {
-    const startRef = roofRefs.find(r => r.code === startCode);
-    const endRef = roofRefs.find(r => r.code === endCode);
-    
+    const startRef = roofRefs.find((r) => r.code === startCode);
+    const endRef = roofRefs.find((r) => r.code === endCode);
+
     if (startRef && endRef) {
       setStartRoofRef(startRef);
       setEndRoofRef(endRef);
-      
+
       const cacheKey = `roof-${startRef.row},${startRef.col}-${endRef.row},${endRef.col}`;
       let shortest = pathCacheRef.current.get(cacheKey);
       if (!shortest) {
-        shortest = bfs(grid, [startRef.row, startRef.col], [endRef.row, endRef.col]);
+        shortest = bfs(
+          grid,
+          [startRef.row, startRef.col],
+          [endRef.row, endRef.col],
+        );
         pathCacheRef.current.set(cacheKey, shortest);
       }
       setPath(shortest);
@@ -996,22 +1003,31 @@ function App() {
 
   // Sort roof refs naturally (A0, A1, A2, A10, B1, etc.) - alphabetically then numerically
   const sortedRoofRefs = [...roofRefs].sort((a, b) => {
-    const aLetter = a.code.match(/^[A-Z]+/)?.[0] || '';
-    const bLetter = b.code.match(/^[A-Z]+/)?.[0] || '';
-    
+    const aLetter = a.code.match(/^[A-Z]+/)?.[0] || "";
+    const bLetter = b.code.match(/^[A-Z]+/)?.[0] || "";
+
     if (aLetter !== bLetter) {
       return aLetter.localeCompare(bLetter);
     }
-    
-    const aNum = parseInt(a.code.match(/\d+/)?.[0] || '0');
-    const bNum = parseInt(b.code.match(/\d+/)?.[0] || '0');
+
+    const aNum = parseInt(a.code.match(/\d+/)?.[0] || "0");
+    const bNum = parseInt(b.code.match(/\d+/)?.[0] || "0");
     return aNum - bNum;
   });
 
   // Filter roof refs by search term
-  const filteredRoofRefs = sortedRoofRefs.filter(ref =>
-    ref.code.toLowerCase().includes(roofRefSearch.toLowerCase())
+  const filteredRoofRefs = sortedRoofRefs.filter((ref) =>
+    ref.code.toLowerCase().includes(roofRefSearch.toLowerCase()),
   );
+
+  // Filter locations by search term
+  const filteredLocations = nodes
+    ? nodes.filter(
+        (node) =>
+          node.name.toLowerCase().includes(locationsSearch.toLowerCase()) ||
+          node.type.toLowerCase().includes(locationsSearch.toLowerCase()),
+      )
+    : [];
 
   const rowToLetter = (r) => String.fromCharCode(65 + r);
   const getCoord = (r, c) => `${rowToLetter(r)}${c + 1}`;
@@ -1033,8 +1049,8 @@ function App() {
         <div className="nav-brand">
           <div className="logo">📍</div>
           <div className="brand-text">
-            <h1>Campus Navigator Pro</h1>
-            <p className="brand-subtitle">Interactive Pathfinding System</p>
+            <h1>SanlamNav</h1>
+            <p className="brand-subtitle">Smart Navigation System</p>
           </div>
         </div>
 
@@ -1066,46 +1082,21 @@ function App() {
       <div className="main-container">
         <div className="left-sidebar">
           <div className="sidebar-section">
-            <h3>Navigation Mode</h3>
-            <div className="mode-selector">
-              <button
-                className={`mode-btn ${activeTab === "roofRef" ? "active" : ""}`}
-                onClick={() => setActiveTab("roofRef")}
-              >
-                <span className="mode-icon">🏷️</span>
-                <span>Roof Ref</span>
-              </button>
-              <button
-                className={`mode-btn ${activeTab === "locations" ? "active" : ""}`}
-                onClick={() => setActiveTab("locations")}
-              >
-                <span className="mode-icon">📍</span>
-                <span>Locations</span>
-              </button>
-              <button
-                className={`mode-btn ${activeTab === "grid" ? "active" : ""}`}
-                onClick={() => setActiveTab("grid")}
-              >
-                <span className="mode-icon">🗺️</span>
-                <span>Grid Points</span>
-              </button>
-            </div>
-          </div>
-
-          <div className="sidebar-section">
             <h3>Path Information</h3>
             <div className="path-info-card">
               <div className="info-row">
                 <span className="info-label">Start:</span>
                 <span className="info-value">
-                  {startRoofRef?.code || startNode?.name ||
+                  {startRoofRef?.code ||
+                    startNode?.name ||
                     (start ? getCoord(start[0], start[1]) : "Select a point")}
                 </span>
               </div>
               <div className="info-row">
                 <span className="info-label">Destination:</span>
                 <span className="info-value">
-                  {endRoofRef?.code || endNode?.name ||
+                  {endRoofRef?.code ||
+                    endNode?.name ||
                     (end ? getCoord(end[0], end[1]) : "Select a point")}
                 </span>
               </div>
@@ -1127,61 +1118,6 @@ function App() {
           </div>
 
           <div className="sidebar-section">
-            <h3>Zoom Controls</h3>
-            <div className="zoom-controls">
-              <button
-                className="zoom-btn"
-                onClick={() => {
-                  hasZoomedToPath.current = false;
-                  setZoomState((prev) => ({
-                    ...prev,
-                    scale: Math.min(4, prev.scale * 1.2),
-                  }));
-                }}
-                disabled={zoomState.isAnimating}
-              >
-                <span className="zoom-icon">➕</span>
-                Zoom In
-              </button>
-              <button
-                className="zoom-btn"
-                onClick={() => {
-                  hasZoomedToPath.current = false;
-                  setZoomState((prev) => ({
-                    ...prev,
-                    scale: Math.max(0.5, prev.scale * 0.8),
-                  }));
-                }}
-                disabled={zoomState.isAnimating}
-              >
-                <span className="zoom-icon">➖</span>
-                Zoom Out
-              </button>
-              <button
-                className="zoom-btn"
-                onClick={resetZoom}
-                disabled={zoomState.isAnimating}
-              >
-                <span className="zoom-icon">⟲</span>
-                Reset View
-              </button>
-              {path.length > 0 && (
-                <button
-                  className="zoom-btn highlight"
-                  onClick={() => {
-                    hasZoomedToPath.current = false;
-                    requestAnimationFrame(zoomToPath);
-                  }}
-                  disabled={zoomState.isAnimating || hasZoomedToPath.current}
-                >
-                  <span className="zoom-icon">🔍</span>
-                  Focus Path
-                </button>
-              )}
-            </div>
-          </div>
-
-          <div className="sidebar-section">
             <h3>Quick Actions</h3>
             <div className="action-buttons">
               <button
@@ -1197,12 +1133,49 @@ function App() {
               </button>
             </div>
           </div>
+
+          {/* Left Sidebar - Quick Guide */}
+          <div className="left-sidebar">
+            <div className="quick-guide">
+              <h3>
+                <span className="quick-guide-icon">📋</span>
+                Quick Tips
+              </h3>
+
+              <div className="quick-guide-tips">
+                <ul>
+                  <li>
+                    <strong>Double-click</strong> any item to quickly set it as
+                    both start and destination (for checking individual
+                    locations)
+                  </li>
+                  <li>
+                    <strong>Scroll</strong> to zoom in/out on the map
+                  </li>
+                  <li>
+                    <strong>Click and drag</strong> to pan around the map when
+                    zoomed in
+                  </li>
+                  <li>
+                    Paths are calculated using the shortest walkable route
+                    through the building
+                  </li>
+                  <li>
+                    The system automatically optimizes for the most efficient
+                    navigation path
+                  </li>
+                </ul>
+              </div>
+            </div>
+
+            {/* Keep any other left sidebar sections you want to show */}
+          </div>
         </div>
 
         {/* Main Map Area */}
         <div className="map-area">
           <div className="map-header">
-            <h2>Campus Map</h2>
+            <h2>First Floor</h2>
             <div className="map-info">
               <span className="grid-dimensions">
                 {rows} × {cols} Grid
@@ -1280,8 +1253,10 @@ function App() {
                   {(start || startNode || startRoofRef) && (
                     <StartIcon
                       position={
-                        startRoofRef ? [startRoofRef.row, startRoofRef.col] :
-                        start || (startNode && [startNode.row, startNode.col])
+                        startRoofRef
+                          ? [startRoofRef.row, startRoofRef.col]
+                          : start ||
+                            (startNode && [startNode.row, startNode.col])
                       }
                       cellWidth={cellWidth}
                       cellHeight={cellHeight}
@@ -1292,8 +1267,9 @@ function App() {
                   {(end || endNode || endRoofRef) && (
                     <DestinationIcon
                       position={
-                        endRoofRef ? [endRoofRef.row, endRoofRef.col] :
-                        end || (endNode && [endNode.row, endNode.col])
+                        endRoofRef
+                          ? [endRoofRef.row, endRoofRef.col]
+                          : end || (endNode && [endNode.row, endNode.col])
                       }
                       cellWidth={cellWidth}
                       cellHeight={cellHeight}
@@ -1341,29 +1317,59 @@ function App() {
 
         <div className="right-sidebar">
           <div className="sidebar-section">
+            <h3>Navigation Mode</h3>
+            <div className="mode-selector">
+              <button
+                className={`mode-btn ${activeTab === "roofRef" ? "active" : ""}`}
+                onClick={() => setActiveTab("roofRef")}
+              >
+                <span className="mode-icon">🏷️</span>
+                <span>Roof Ref</span>
+              </button>
+              <button
+                className={`mode-btn ${activeTab === "locations" ? "active" : ""}`}
+                onClick={() => setActiveTab("locations")}
+              >
+                <span className="mode-icon">📍</span>
+                <span>Locations</span>
+              </button>
+              <button
+                className={`mode-btn ${activeTab === "grid" ? "active" : ""}`}
+                onClick={() => setActiveTab("grid")}
+              >
+                <span className="mode-icon">🗺️</span>
+                <span>Grid Points</span>
+              </button>
+            </div>
+          </div>
+          <div className="sidebar-section">
             <h3>
-              {activeTab === "roofRef" ? "🏷️ Roof References" : activeTab === "locations" ? "📍 Locations" : "🗺️ Grid Points"}
+              {activeTab === "roofRef"
+                ? "🏷️ Roof References"
+                : activeTab === "locations"
+                  ? "📍 Locations"
+                  : "🗺️ Grid Points"}
             </h3>
 
             {activeTab === "roofRef" ? (
               <div className="locations-list">
                 {/* Search Input */}
-                <div style={{ marginBottom: '10px' }}>
+                <div style={{ marginBottom: "10px" }}>
                   <input
                     type="text"
                     placeholder="🔍 Search roof ref (e.g., A1, B2)..."
                     value={roofRefSearch}
                     onChange={(e) => setRoofRefSearch(e.target.value)}
                     style={{
-                      width: '100%',
-                      padding: '10px 12px',
-                      fontSize: '14px',
-                      border: '1px solid #4b5563',
-                      borderRadius: '6px',
-                      background: '#1f2937',
-                      color: 'white',
-                      outline: 'none',
-                      boxSizing: 'border-box'
+                      width: "100%",
+                      padding: "10px 12px",
+                      fontSize: "14px",
+                      border: "1px solid #4b5563",
+                      borderRadius: "6px",
+                      background: "#1f2937",
+                      color: "white",
+                      outline: "none",
+                      boxSizing: "border-box",
                     }}
                   />
                 </div>
@@ -1388,7 +1394,10 @@ function App() {
                             hasZoomedToPath.current = false;
                           } else if (!endRoofRef) {
                             setEndRoofRef(ref);
-                            handleRoofRefNavigation(startRoofRef.code, ref.code);
+                            handleRoofRefNavigation(
+                              startRoofRef.code,
+                              ref.code,
+                            );
                           } else {
                             setStartRoofRef(ref);
                             setEndRoofRef(null);
@@ -1399,7 +1408,12 @@ function App() {
                         style={{ cursor: "pointer" }}
                       >
                         <div className="location-info">
-                          <div className="location-name" style={{ fontSize: "16px", fontWeight: "bold" }}>{ref.code}</div>
+                          <div
+                            className="location-name"
+                            style={{ fontSize: "16px", fontWeight: "bold" }}
+                          >
+                            {ref.code}
+                          </div>
                         </div>
                         <div className="location-icon">🏷️</div>
                       </div>
@@ -1411,12 +1425,36 @@ function App() {
               </div>
             ) : activeTab === "locations" ? (
               <div className="locations-list">
-                <div className="list-header">
-                  <span>Name</span>
-                  <span>Coordinates</span>
+                {/* Search Input for Locations */}
+                <div style={{ marginBottom: "10px" }}>
+                  <input
+                    type="text"
+                    placeholder="🔍 Search locations (e.g., Tygerberg, Boardroom)..."
+                    value={locationsSearch}
+                    onChange={(e) => setLocationsSearch(e.target.value)}
+                  />
                 </div>
+
                 <div className="scrollable-list">
-                  {nodes && nodes.length > 0 ? (
+                  {filteredLocations.length > 0 ? (
+                    filteredLocations.map((node) => (
+                      <div
+                        key={node.id}
+                        className={`location-item ${startNode?.id === node.id ? "selected-start" : ""} ${endNode?.id === node.id ? "selected-end" : ""}`}
+                        onClick={() => handleNodeClick(node)}
+                      >
+                        <div className="location-info">
+                          <div className="location-name">{node.name}</div>
+                          <div className="location-type">{node.type}</div>
+                        </div>
+                      </div>
+                    ))
+                  ) : locationsSearch ? (
+                    <div className="search-empty-state">
+                      <div>No locations found for "{locationsSearch}"</div>
+                      <p>Try a different search term</p>
+                    </div>
+                  ) : nodes && nodes.length > 0 ? (
                     nodes.map((node) => (
                       <div
                         key={node.id}
@@ -1427,20 +1465,13 @@ function App() {
                           <div className="location-name">{node.name}</div>
                           <div className="location-type">{node.type}</div>
                         </div>
-                        <div className="location-coords">
-                          {getCoord(node.row, node.col)}
-                        </div>
-                        <div className="location-icon">
-                          {node.type === "office"
-                            ? "🏢"
-                            : node.type === "room"
-                              ? "🚪"
-                              : "📍"}
-                        </div>
                       </div>
                     ))
                   ) : (
-                    <p>No locations available</p>
+                    <div className="search-empty-state">
+                      <div>No locations available</div>
+                      <p>Check your grid.json file</p>
+                    </div>
                   )}
                 </div>
               </div>
