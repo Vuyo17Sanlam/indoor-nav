@@ -640,6 +640,9 @@ function App() {
   // Locations Search State
   const [locationsSearch, setLocationsSearch] = useState("");
 
+  // QR Scanner State
+  const [showQRScanner, setShowQRScanner] = useState(false);
+
   // Simplified zoom state
   const [zoomState, setZoomState] = useState({
     scale: 1,
@@ -1042,7 +1045,33 @@ function App() {
     setPath([]);
     resetZoom();
   };
+  // Handle QR Code Scan
+  function handleQRCodeScan(code) {
+    // This would be your QR code parsing logic
+    console.log("QR Code scanned:", code);
 
+    // Example: Parse roof reference from QR code
+    // QR code format could be: "roof:A1" or "location:Office-101"
+    if (code.startsWith("roof:")) {
+      const roofCode = code.replace("roof:", "");
+      const roofRef = roofRefs.find((r) => r.code === roofCode);
+      if (roofRef) {
+        if (!startRoofRef) {
+          setStartRoofRef(roofRef);
+        } else if (!endRoofRef) {
+          setEndRoofRef(roofRef);
+          handleRoofRefNavigation(startRoofRef.code, roofCode);
+        } else {
+          setStartRoofRef(roofRef);
+          setEndRoofRef(null);
+          setPath([]);
+        }
+      }
+    }
+
+    // Close the scanner
+    setShowQRScanner(false);
+  }
   return (
     <div className="app-wrapper">
       <nav className="top-nav">
@@ -1166,9 +1195,30 @@ function App() {
                   </li>
                 </ul>
               </div>
-            </div>
 
-            {/* Keep any other left sidebar sections you want to show */}
+              {/* Keep any other left sidebar sections you want to show */}
+            </div>
+            {/* QR Code Scanner Section */}
+            <div className="qr-code-section">
+              <button
+                className="qr-code-btn"
+                onClick={() => setShowQRScanner(true)}
+              >
+                <span className="qr-code-btn-icon">📷</span>
+                Scan QR Code
+              </button>
+
+              <div className="qr-code-info">
+                <p>
+                  <strong>Fast access:</strong> Scan QR codes located around the
+                  building to instantly navigate to that location.
+                </p>
+                <p>
+                  QR codes are available at major junctions, meeting rooms, and
+                  office entrances.
+                </p>
+              </div>
+            </div>
           </div>
         </div>
 
@@ -1494,6 +1544,77 @@ function App() {
           </div>
         </div>
       </div>
+      {/* QR Scanner Modal */}
+      {showQRScanner && (
+        <div
+          className="qr-scanner-modal"
+          onClick={() => setShowQRScanner(false)}
+        >
+          <div
+            className="qr-scanner-content"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="qr-scanner-header">
+              <h3>
+                <span>📷</span>
+                QR Code Scanner
+              </h3>
+              <button
+                className="close-btn"
+                onClick={() => setShowQRScanner(false)}
+              >
+                ×
+              </button>
+            </div>
+
+            <div className="qr-scanner-placeholder">
+              <div className="qr-scanner-icon">📱</div>
+              <p>Position QR code within the frame to scan</p>
+            </div>
+
+            <div className="qr-scanner-instructions">
+              <h4>
+                <span>💡</span>
+                How to scan QR codes
+              </h4>
+              <ul>
+                <li>Ensure good lighting for better scanning</li>
+                <li>Hold your device steady</li>
+                <li>Position the QR code within the frame</li>
+                <li>The scanner will automatically detect the code</li>
+                <li>
+                  QR codes are located at building entrances and key locations
+                </li>
+              </ul>
+            </div>
+
+            {/* Demo buttons for testing */}
+            <div
+              style={{
+                marginTop: "20px",
+                display: "flex",
+                gap: "10px",
+                justifyContent: "center",
+              }}
+            >
+              <button
+                className="action-btn help-btn"
+                style={{ padding: "10px 20px", fontSize: "0.9rem" }}
+                onClick={() => handleQRCodeScan("roof:A1")}
+              >
+                Demo: Scan A1
+              </button>
+              <button
+                className="action-btn clear-btn"
+                style={{ padding: "10px 20px", fontSize: "0.9rem" }}
+                onClick={() => handleQRCodeScan("roof:B3")}
+              >
+                Demo: Scan B3
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
