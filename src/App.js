@@ -1,5 +1,608 @@
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, useCallback, useMemo, memo } from "react";
 import { bfs } from "./utils/pathfinding";
+
+// Throttle utility
+function throttle(func, limit) {
+  let inThrottle;
+  return function (...args) {
+    if (!inThrottle) {
+      func.apply(this, args);
+      inThrottle = true;
+      requestAnimationFrame(() => {
+        inThrottle = false;
+      });
+    }
+  };
+}
+
+// Start Point Icon Component (without circular shape)
+const StartIcon = memo(({ position, cellWidth, cellHeight }) => {
+  if (!position) return null;
+
+  const [r, c] = position;
+  const centerX = c * cellWidth + cellWidth / 2;
+  const centerY = r * cellHeight + cellHeight / 2;
+
+  return (
+    <div
+      style={{
+        position: "absolute",
+        left: centerX - 16,
+        top: centerY - 16,
+        width: 32,
+        height: 32,
+        pointerEvents: "none",
+        zIndex: 15,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        filter: "drop-shadow(0 2px 4px rgba(0, 0, 0, 0.3))",
+      }}
+    >
+      <svg width="32" height="32" viewBox="0 0 24 24" fill="none">
+        {/* Green location icon */}
+        <path
+          d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"
+          fill="#10B981"
+          stroke="#059669"
+          strokeWidth="1.5"
+        />
+        {/* Optional subtle outer ring */}
+        <circle
+          cx="12"
+          cy="12"
+          r="11"
+          stroke="rgba(16, 185, 129, 0.3)"
+          strokeWidth="0.5"
+          fill="none"
+        />
+      </svg>
+    </div>
+  );
+});
+
+StartIcon.displayName = "StartIcon";
+
+// Destination Icon Component (without circular shape)
+const DestinationIcon = memo(({ position, cellWidth, cellHeight }) => {
+  if (!position) return null;
+
+  const [r, c] = position;
+  const centerX = c * cellWidth + cellWidth / 2;
+  const centerY = r * cellHeight + cellHeight / 2;
+
+  return (
+    <div
+      style={{
+        position: "absolute",
+        left: centerX - 16,
+        top: centerY - 16,
+        width: 32,
+        height: 32,
+        pointerEvents: "none",
+        zIndex: 15,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        filter: "drop-shadow(0 2px 4px rgba(0, 0, 0, 0.3))",
+      }}
+    >
+      <svg width="32" height="32" viewBox="0 0 24 24" fill="none">
+        {/* Red location icon - same shape as start but red */}
+        <path
+          d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"
+          fill="#EF4444"
+          stroke="#DC2626"
+          strokeWidth="1.5"
+        />
+        {/* Optional subtle outer ring */}
+        <circle
+          cx="12"
+          cy="12"
+          r="11"
+          stroke="rgba(239, 68, 68, 0.3)"
+          strokeWidth="0.5"
+          fill="none"
+        />
+      </svg>
+    </div>
+  );
+});
+
+DestinationIcon.displayName = "DestinationIcon";
+
+// Sleek animated path component
+const SleekAnimatedPath = memo(
+  ({ path, cellWidth, cellHeight, imgWidth, imgHeight }) => {
+    const canvasRef = useRef(null);
+    const animationRef = useRef(null);
+    const [progress, setProgress] = useState(0);
+
+    // Calculate smooth path with catmull-rom splines for even smoother curves
+    const smoothPath = useMemo(() => {
+      if (path.length < 2) return [];
+
+      const points = path.map(([r, c]) => ({
+        x: c * cellWidth + cellWidth / 2,
+        y: r * cellHeight + cellHeight / 2,
+      }));
+
+      // Create catmull-rom spline through all points
+      const segments = [];
+      const tension = 0.5;
+
+      for (let i = 0; i < path.length - 1; i++) {
+        const p0 = points[Math.max(0, i - 1)];
+        const p1 = points[i];
+        const p2 = points[i + 1];
+        const p3 = points[Math.min(points.length - 1, i + 2)];
+
+        // Catmull-Rom to Cubic Bezier conversion
+        const cp1 = {
+          x: p1.x + ((p2.x - p0.x) * tension) / 6,
+          y: p1.y + ((p2.y - p0.y) * tension) / 6,
+        };
+
+        const cp2 = {
+          x: p2.x - ((p3.x - p1.x) * tension) / 6,
+          y: p2.y - ((p3.y - p1.y) * tension) / 6,
+        };
+
+        const length = bezierLength(p1, cp1, cp2, p2);
+        segments.push({ p1, cp1, cp2, p2, length });
+      }
+
+      return segments;
+    }, [path, cellWidth, cellHeight]);
+
+    // Bezier helper functions
+    function bezierLength(p0, p1, p2, p3) {
+      const steps = 20;
+      let length = 0;
+      let prev = p0;
+
+      for (let i = 1; i <= steps; i++) {
+        const t = i / steps;
+        const current = bezierPoint(p0, p1, p2, p3, t);
+        length += distance(prev, current);
+        prev = current;
+      }
+
+      return length;
+    }
+
+    function bezierPoint(p0, p1, p2, p3, t) {
+      const mt = 1 - t;
+      const mt2 = mt * mt;
+      const t2 = t * t;
+
+      return {
+        x:
+          mt2 * mt * p0.x +
+          3 * mt2 * t * p1.x +
+          3 * mt * t2 * p2.x +
+          t2 * t * p3.x,
+        y:
+          mt2 * mt * p0.y +
+          3 * mt2 * t * p1.y +
+          3 * mt * t2 * p2.y +
+          t2 * t * p3.y,
+      };
+    }
+
+    function distance(p1, p2) {
+      return Math.sqrt(Math.pow(p2.x - p1.x, 2) + Math.pow(p2.y - p1.y, 2));
+    }
+
+    // Get point and direction at specific progress
+    function getPointOnPath(progressValue) {
+      if (smoothPath.length === 0) return null;
+
+      const totalLength = smoothPath.reduce((sum, seg) => sum + seg.length, 0);
+      let targetLength = progressValue * totalLength;
+
+      for (const segment of smoothPath) {
+        if (targetLength <= segment.length) {
+          const t = targetLength / segment.length;
+          return bezierPoint(
+            segment.p1,
+            segment.cp1,
+            segment.cp2,
+            segment.p2,
+            t,
+          );
+        }
+        targetLength -= segment.length;
+      }
+
+      return smoothPath[smoothPath.length - 1].p2;
+    }
+
+    function getDirectionAtPoint(progressValue) {
+      if (smoothPath.length === 0) return 0;
+
+      const epsilon = 0.001;
+      const p1 = getPointOnPath(Math.max(0, progressValue - epsilon));
+      const p2 = getPointOnPath(Math.min(1, progressValue + epsilon));
+
+      if (!p1 || !p2) return 0;
+
+      return Math.atan2(p2.y - p1.y, p2.x - p1.x);
+    }
+
+    // Draw the sleek animated path
+    const drawPath = useCallback(
+      (ctx, currentProgress) => {
+        if (smoothPath.length === 0) return;
+
+        ctx.clearRect(0, 0, imgWidth, imgHeight);
+
+        // Draw full path (very subtle background)
+        ctx.beginPath();
+        ctx.moveTo(smoothPath[0].p1.x, smoothPath[0].p1.y);
+
+        smoothPath.forEach((segment) => {
+          ctx.bezierCurveTo(
+            segment.cp1.x,
+            segment.cp1.y,
+            segment.cp2.x,
+            segment.cp2.y,
+            segment.p2.x,
+            segment.p2.y,
+          );
+        });
+
+        // Ultra slim background path
+        ctx.strokeStyle = "rgba(59, 130, 246, 0.1)";
+        ctx.lineWidth = 2;
+        ctx.lineCap = "round";
+        ctx.lineJoin = "round";
+        ctx.stroke();
+
+        // Draw animated progress - slim design
+        const progressLength =
+          currentProgress *
+          smoothPath.reduce((sum, seg) => sum + seg.length, 0);
+        let accumulated = 0;
+
+        ctx.beginPath();
+        ctx.moveTo(smoothPath[0].p1.x, smoothPath[0].p1.y);
+
+        for (const segment of smoothPath) {
+          if (progressLength <= accumulated) break;
+
+          const segmentProgress = Math.min(
+            1,
+            (progressLength - accumulated) / segment.length,
+          );
+
+          if (segmentProgress > 0) {
+            const steps = Math.max(5, Math.floor(segment.length / 10));
+            for (let i = 0; i <= steps; i++) {
+              const t = (i / steps) * segmentProgress;
+              const point = bezierPoint(
+                segment.p1,
+                segment.cp1,
+                segment.cp2,
+                segment.p2,
+                t,
+              );
+
+              if (i === 0) ctx.moveTo(point.x, point.y);
+              else ctx.lineTo(point.x, point.y);
+            }
+          }
+
+          accumulated += segment.length;
+        }
+
+        // Sleek gradient for animated path
+        const gradient = ctx.createLinearGradient(0, 0, imgWidth, imgHeight);
+        gradient.addColorStop(0, "rgba(59, 130, 246, 1)");
+        gradient.addColorStop(0.5, "rgba(37, 99, 235, 1)");
+        gradient.addColorStop(1, "rgba(29, 78, 216, 1)");
+
+        ctx.strokeStyle = gradient;
+        ctx.lineWidth = 3; // Slimmer line
+        ctx.lineCap = "round";
+        ctx.lineJoin = "round";
+
+        // Subtle shadow for depth
+        ctx.shadowColor = "rgba(59, 130, 246, 0.3)";
+        ctx.shadowBlur = 8;
+        ctx.shadowOffsetX = 0;
+        ctx.shadowOffsetY = 1;
+        ctx.stroke();
+        ctx.shadowBlur = 0;
+
+        // Draw subtle pulse effect along the path
+        const pulseCount = 3;
+        for (let i = 0; i < pulseCount; i++) {
+          const pulseProgress = (currentProgress + i * 0.15) % 1;
+          const pulsePoint = getPointOnPath(pulseProgress);
+          if (pulsePoint) {
+            drawPulseEffect(ctx, pulsePoint.x, pulsePoint.y);
+          }
+        }
+
+        // Draw minimal arrow at progress point
+        const arrowPoint = getPointOnPath(currentProgress);
+        if (arrowPoint) {
+          const angle = getDirectionAtPoint(currentProgress);
+          drawSleekArrow(ctx, arrowPoint.x, arrowPoint.y, angle);
+        }
+
+        // Draw tiny direction indicators every 20% of the path
+        const indicatorCount = Math.min(5, Math.floor(smoothPath.length));
+        for (let i = 1; i <= indicatorCount; i++) {
+          const indicatorProgress = i / (indicatorCount + 1);
+          const indicatorPoint = getPointOnPath(indicatorProgress);
+          if (indicatorPoint) {
+            const angle = getDirectionAtPoint(indicatorProgress);
+            drawDirectionIndicator(
+              ctx,
+              indicatorPoint.x,
+              indicatorPoint.y,
+              angle,
+            );
+          }
+        }
+      },
+      [smoothPath, imgWidth, imgHeight],
+    );
+
+    function drawSleekArrow(ctx, x, y, angle) {
+      ctx.save();
+      ctx.translate(x, y);
+      ctx.rotate(angle);
+
+      // Minimal arrow design
+      ctx.beginPath();
+
+      // Arrow head (small chevron)
+      ctx.moveTo(4, 0);
+      ctx.lineTo(-2, -4);
+      ctx.lineTo(-2, 4);
+      ctx.closePath();
+
+      // Gradient fill for arrow
+      const arrowGradient = ctx.createLinearGradient(-4, 0, 4, 0);
+      arrowGradient.addColorStop(0, "#ffffff");
+      arrowGradient.addColorStop(1, "#dbeafe");
+      ctx.fillStyle = arrowGradient;
+      ctx.fill();
+
+      // Subtle outline
+      ctx.lineWidth = 0.5;
+      ctx.strokeStyle = "rgba(37, 99, 235, 0.5)";
+      ctx.stroke();
+
+      // Tiny glow effect
+      ctx.beginPath();
+      ctx.arc(0, 0, 6, 0, Math.PI * 2);
+      ctx.fillStyle = "rgba(59, 130, 246, 0.15)";
+      ctx.fill();
+
+      ctx.restore();
+    }
+
+    function drawPulseEffect(ctx, x, y) {
+      // Subtle pulse dot
+      ctx.beginPath();
+      ctx.arc(x, y, 2, 0, Math.PI * 2);
+      ctx.fillStyle = "rgba(255, 255, 255, 0.8)";
+      ctx.fill();
+
+      // Even more subtle outer ring
+      ctx.beginPath();
+      ctx.arc(x, y, 4, 0, Math.PI * 2);
+      ctx.fillStyle = "rgba(59, 130, 246, 0.2)";
+      ctx.fill();
+    }
+
+    function drawDirectionIndicator(ctx, x, y, angle) {
+      ctx.save();
+      ctx.translate(x, y);
+      ctx.rotate(angle);
+
+      // Minimal direction indicator (tiny dash)
+      ctx.beginPath();
+      ctx.moveTo(-1.5, 0);
+      ctx.lineTo(1.5, 0);
+      ctx.strokeStyle = "rgba(255, 255, 255, 0.6)";
+      ctx.lineWidth = 1.5;
+      ctx.lineCap = "round";
+      ctx.stroke();
+
+      ctx.restore();
+    }
+
+    // Animation loop with smooth easing
+    useEffect(() => {
+      if (!canvasRef.current || smoothPath.length === 0) return;
+
+      const canvas = canvasRef.current;
+      const ctx = canvas.getContext("2d");
+
+      let animationFrameId;
+      let startTime = null;
+      const duration = 3000; // 3 seconds for full animation
+      let animationProgress = 0;
+
+      const animate = (timestamp) => {
+        if (!startTime) startTime = timestamp;
+        const elapsed = timestamp - startTime;
+
+        // Smooth easing function
+        const easeInOutCubic = (t) =>
+          t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+
+        animationProgress = Math.min(1, elapsed / duration);
+        const easedProgress = easeInOutCubic(animationProgress);
+
+        setProgress(easedProgress);
+        drawPath(ctx, easedProgress);
+
+        if (animationProgress < 1) {
+          animationFrameId = requestAnimationFrame(animate);
+        } else {
+          // Keep the final frame without restarting
+          startTime = null;
+        }
+      };
+
+      animationFrameId = requestAnimationFrame(animate);
+
+      return () => {
+        if (animationFrameId) {
+          cancelAnimationFrame(animationFrameId);
+        }
+      };
+    }, [smoothPath, drawPath]);
+
+    // Set up canvas
+    useEffect(() => {
+      if (!canvasRef.current || !imgWidth || !imgHeight) return;
+
+      const canvas = canvasRef.current;
+      canvas.width = imgWidth;
+      canvas.height = imgHeight;
+
+      // Enable smoothing for crisp lines
+      const ctx = canvas.getContext("2d");
+      ctx.imageSmoothingEnabled = true;
+      ctx.imageSmoothingQuality = "high";
+    }, [imgWidth, imgHeight]);
+
+    if (path.length < 2) return null;
+
+    return (
+      <canvas
+        ref={canvasRef}
+        style={{
+          position: "absolute",
+          top: 0,
+          left: 0,
+          pointerEvents: "none",
+          zIndex: 10,
+        }}
+      />
+    );
+  },
+);
+
+SleekAnimatedPath.displayName = "SleekAnimatedPath";
+
+// Canvas-based grid renderer for extreme performance
+const CanvasGridLayer = memo(
+  ({
+    rows,
+    cols,
+    cellWidth,
+    cellHeight,
+    grid,
+    start,
+    end,
+    path,
+    activeTab,
+    handleGridClick,
+    imgWidth,
+    imgHeight,
+  }) => {
+    const canvasRef = useRef(null);
+    const pathSetRef = useRef(new Set());
+
+    // Create a Set for O(1) path lookups instead of O(n) .some() operations
+    useMemo(() => {
+      pathSetRef.current.clear();
+      for (let i = 0; i < path.length; i++) {
+        pathSetRef.current.add(`${path[i][0]},${path[i][1]}`);
+      }
+    }, [path]);
+
+    useEffect(() => {
+      if (!canvasRef.current || !imgWidth || !imgHeight) return;
+
+      const canvas = canvasRef.current;
+      canvas.width = imgWidth;
+      canvas.height = imgHeight;
+      const ctx = canvas.getContext("2d", { willReadFrequently: false });
+
+      if (!ctx) return;
+
+      // Clear canvas
+      ctx.fillStyle = "transparent";
+      ctx.clearRect(0, 0, imgWidth, imgHeight);
+
+      // Draw walkable area background (very subtle)
+      ctx.fillStyle = "rgba(144, 238, 144, 0.05)";
+      for (let r = 0; r < rows; r++) {
+        for (let c = 0; c < cols; c++) {
+          if (grid[r]?.[c] === 1) {
+            ctx.fillRect(c * cellWidth, r * cellHeight, cellWidth, cellHeight);
+          }
+        }
+      }
+
+      // Draw path (static version - very faint)
+      if (pathSetRef.current.size > 0) {
+        ctx.fillStyle = "rgba(59, 130, 246, 0.08)";
+        for (const key of pathSetRef.current) {
+          const [r, c] = key.split(",").map(Number);
+          ctx.fillRect(c * cellWidth, r * cellHeight, cellWidth, cellHeight);
+        }
+      }
+    }, [rows, cols, cellWidth, cellHeight, grid, imgWidth, imgHeight, path]);
+
+    const handleCanvasClick = useCallback(
+      (e) => {
+        if (activeTab !== "grid" || !canvasRef.current) return;
+
+        const rect = canvasRef.current.getBoundingClientRect();
+        const x = e.clientX - rect.left;
+        const y = e.clientY - rect.top;
+
+        const c = Math.floor(x / cellWidth);
+        const r = Math.floor(y / cellHeight);
+
+        if (r >= 0 && r < rows && c >= 0 && c < cols && grid[r]?.[c] === 1) {
+          handleGridClick(r, c);
+        }
+      },
+      [activeTab, cellWidth, cellHeight, rows, cols, grid, handleGridClick],
+    );
+
+    return (
+      <canvas
+        ref={canvasRef}
+        onClick={handleCanvasClick}
+        style={{
+          position: "absolute",
+          top: 0,
+          left: 0,
+          pointerEvents: activeTab === "grid" ? "auto" : "none",
+          cursor: activeTab === "grid" ? "pointer" : "default",
+        }}
+      />
+    );
+  },
+  (prevProps, nextProps) => {
+    return (
+      prevProps.rows === nextProps.rows &&
+      prevProps.cols === nextProps.cols &&
+      prevProps.cellWidth === nextProps.cellWidth &&
+      prevProps.cellHeight === nextProps.cellHeight &&
+      prevProps.activeTab === nextProps.activeTab &&
+      prevProps.start === nextProps.start &&
+      prevProps.end === nextProps.end &&
+      prevProps.path.length === nextProps.path.length &&
+      prevProps.imgWidth === nextProps.imgWidth &&
+      prevProps.imgHeight === nextProps.imgHeight
+    );
+  },
+);
+
+CanvasGridLayer.displayName = "CanvasGridLayer";
 
 function App() {
   const [gridData, setGridData] = useState(null);
@@ -11,7 +614,21 @@ function App() {
   const [imgSize, setImgSize] = useState({ width: 0, height: 0 });
   const [activeTab, setActiveTab] = useState("locations");
   const [stats, setStats] = useState({ totalNodes: 0, offices: 0, rooms: 0 });
+
+  // Simplified zoom state
+  const [zoomState, setZoomState] = useState({
+    scale: 1,
+    translateX: 0,
+    translateY: 0,
+    isAnimating: false,
+  });
+
   const imgRef = useRef(null);
+  const mapContainerRef = useRef(null);
+  const lastMousePosition = useRef({ x: 0, y: 0 });
+  const lastPathLength = useRef(0);
+  const hasZoomedToPath = useRef(false);
+  const pathCacheRef = useRef(new Map()); // Cache for pathfinding results
 
   useEffect(() => {
     fetch("/grid.json")
@@ -19,19 +636,192 @@ function App() {
       .then((data) => {
         setGridData(data);
         if (data.nodes) {
-          const offices = data.nodes.filter(n => n.type === "office").length;
-          const rooms = data.nodes.filter(n => n.type === "room").length;
+          const offices = data.nodes.filter((n) => n.type === "office").length;
+          const rooms = data.nodes.filter((n) => n.type === "room").length;
           setStats({
             totalNodes: data.nodes.length,
             offices,
             rooms,
-            others: data.nodes.length - offices - rooms
+            others: data.nodes.length - offices - rooms,
           });
         }
       });
   }, []);
 
-  // Get actual image dimensions when it loads
+  // Optimized zoom animation using CSS transitions
+  const zoomToPath = useCallback(() => {
+    if (
+      !gridData ||
+      !path.length ||
+      !imgSize.width ||
+      !imgSize.height ||
+      hasZoomedToPath.current
+    ) {
+      return;
+    }
+
+    const cellWidth = imgSize.width / gridData.cols;
+    const cellHeight = imgSize.height / gridData.rows;
+
+    // Quick bounds calculation
+    let minX = Infinity,
+      maxX = -Infinity,
+      minY = Infinity,
+      maxY = -Infinity;
+    for (let i = 0; i < path.length; i++) {
+      const [r, c] = path[i];
+      const x = c * cellWidth;
+      const y = r * cellHeight;
+      if (x < minX) minX = x;
+      if (x > maxX) maxX = x;
+      if (y < minY) minY = y;
+      if (y > maxY) maxY = y;
+    }
+
+    // Add minimal padding
+    const padding = 40;
+    minX = Math.max(0, minX - padding);
+    maxX = Math.min(imgSize.width, maxX + padding);
+    minY = Math.max(0, minY - padding);
+    maxY = Math.min(imgSize.height, maxY + padding);
+
+    const pathWidth = maxX - minX;
+    const pathHeight = maxY - minY;
+
+    if (mapContainerRef.current && pathWidth > 0 && pathHeight > 0) {
+      const containerWidth = mapContainerRef.current.clientWidth;
+      const containerHeight = mapContainerRef.current.clientHeight;
+
+      const scaleX = containerWidth / pathWidth;
+      const scaleY = containerHeight / pathHeight;
+      const targetScale = Math.min(scaleX, scaleY, 2.5); // Reduced max zoom
+
+      const targetX = containerWidth / 2 - (minX + pathWidth / 2) * targetScale;
+      const targetY =
+        containerHeight / 2 - (minY + pathHeight / 2) * targetScale;
+
+      // Mark that we've zoomed to this path
+      hasZoomedToPath.current = true;
+      lastPathLength.current = path.length;
+
+      // Use CSS transitions for smooth animation
+      setZoomState((prev) => ({
+        ...prev,
+        scale: targetScale,
+        translateX: targetX,
+        translateY: targetY,
+        isAnimating: true,
+      }));
+
+      // Clear animation state after transition
+      setTimeout(() => {
+        setZoomState((prev) => ({ ...prev, isAnimating: false }));
+      }, 600); // Match CSS transition duration
+    }
+  }, [path, imgSize, gridData]);
+
+  // Reset zoom - optimized
+  const resetZoom = useCallback(() => {
+    hasZoomedToPath.current = false;
+    setZoomState({
+      scale: 1,
+      translateX: 0,
+      translateY: 0,
+      isAnimating: true,
+    });
+
+    setTimeout(() => {
+      setZoomState((prev) => ({ ...prev, isAnimating: false }));
+    }, 400);
+  }, []);
+
+  // Highly optimized wheel handler with minimal calculations
+  const handleWheel = useCallback(
+    (e) => {
+      e.preventDefault();
+
+      if (zoomState.isAnimating) return;
+
+      // Use delta to determine zoom direction
+      const zoomFactor = e.deltaY > 0 ? 0.9 : 1.1;
+      const newScale = Math.max(0.5, Math.min(4, zoomState.scale * zoomFactor));
+
+      // Skip if scale hasn't changed significantly
+      if (Math.abs(newScale - zoomState.scale) < 0.01) return;
+
+      hasZoomedToPath.current = false;
+
+      // Use getBoundingClientRect only once
+      const rect = mapContainerRef.current.getBoundingClientRect();
+      const mouseX = e.clientX - rect.left;
+      const mouseY = e.clientY - rect.top;
+
+      // Fast zoom calculation
+      const scaleDiff = newScale / zoomState.scale;
+      const newTranslateX =
+        mouseX - (mouseX - zoomState.translateX) * scaleDiff;
+      const newTranslateY =
+        mouseY - (mouseY - zoomState.translateY) * scaleDiff;
+
+      // Single state update for efficiency
+      setZoomState({
+        scale: newScale,
+        translateX: newTranslateX,
+        translateY: newTranslateY,
+        isAnimating: false,
+      });
+    },
+    [zoomState],
+  );
+
+  // Debounced version for wheel events (60fps safe: ~33ms minimum)
+  const debouncedWheel = useCallback(throttle(handleWheel, 40), [handleWheel]);
+
+  // Optimized mouse handlers with requestAnimationFrame for smooth panning
+  const handleMouseDown = useCallback(
+    (e) => {
+      if (zoomState.scale <= 1.1 || zoomState.isAnimating) return;
+
+      lastMousePosition.current = { x: e.clientX, y: e.clientY };
+      let animationFrameId = null;
+
+      const handleMouseMove = (moveEvent) => {
+        if (animationFrameId !== null) {
+          cancelAnimationFrame(animationFrameId);
+        }
+
+        animationFrameId = requestAnimationFrame(() => {
+          const dx = moveEvent.clientX - lastMousePosition.current.x;
+          const dy = moveEvent.clientY - lastMousePosition.current.y;
+
+          setZoomState((prev) => ({
+            ...prev,
+            translateX: prev.translateX + dx,
+            translateY: prev.translateY + dy,
+          }));
+
+          lastMousePosition.current = {
+            x: moveEvent.clientX,
+            y: moveEvent.clientY,
+          };
+        });
+      };
+
+      const handleMouseUp = () => {
+        if (animationFrameId !== null) {
+          cancelAnimationFrame(animationFrameId);
+        }
+        document.removeEventListener("mousemove", handleMouseMove);
+        document.removeEventListener("mouseup", handleMouseUp);
+      };
+
+      document.addEventListener("mousemove", handleMouseMove);
+      document.addEventListener("mouseup", handleMouseUp);
+    },
+    [zoomState.scale, zoomState.isAnimating],
+  );
+
+  // Get actual image dimensions
   const handleImageLoad = () => {
     if (imgRef.current) {
       setImgSize({
@@ -41,19 +831,40 @@ function App() {
     }
   };
 
-  if (!gridData) return (
-    <div className="app-wrapper">
-      <div className="loading-container">
-        <div className="loading-animation">
-          <div className="loading-dot"></div>
-          <div className="loading-dot"></div>
-          <div className="loading-dot"></div>
+  // Control path zoom - only zoom when path changes significantly
+  useEffect(() => {
+    if (path.length > 0 && path.length !== lastPathLength.current) {
+      hasZoomedToPath.current = false;
+      // Use requestAnimationFrame instead of setTimeout for better timing
+      const frameId = requestAnimationFrame(() => {
+        zoomToPath();
+      });
+      return () => cancelAnimationFrame(frameId);
+    }
+  }, [path.length, zoomToPath]);
+
+  // Clear zoom flag when path is cleared
+  useEffect(() => {
+    if (path.length === 0) {
+      hasZoomedToPath.current = false;
+      lastPathLength.current = 0;
+    }
+  }, [path.length]);
+
+  if (!gridData)
+    return (
+      <div className="app-wrapper">
+        <div className="loading-container">
+          <div className="loading-animation">
+            <div className="loading-dot"></div>
+            <div className="loading-dot"></div>
+            <div className="loading-dot"></div>
+          </div>
+          <h2>Loading Campus Navigator...</h2>
+          <p>Initializing grid system and location data</p>
         </div>
-        <h2>Loading Campus Navigator...</h2>
-        <p>Initializing grid system and location data</p>
       </div>
-    </div>
-  );
+    );
 
   const { rows, cols, grid, nodes } = gridData;
 
@@ -61,39 +872,55 @@ function App() {
   const cellWidth = imgSize.width / cols;
   const cellHeight = imgSize.height / rows;
 
-  // KEEP ORIGINAL LOGIC EXACTLY AS IS
+  // Optimized click handlers with path caching
   function handleNodeClick(node) {
     if (!startNode) {
       setStartNode(node);
+      hasZoomedToPath.current = false;
     } else if (!endNode) {
       setEndNode(node);
-      const shortest = bfs(grid, [node.row, node.col], [startNode.row, startNode.col]);
+      const cacheKey = `${startNode.row},${startNode.col}-${node.row},${node.col}`;
+      let shortest = pathCacheRef.current.get(cacheKey);
+      if (!shortest) {
+        shortest = bfs(
+          grid,
+          [startNode.row, startNode.col],
+          [node.row, node.col],
+        );
+        pathCacheRef.current.set(cacheKey, shortest);
+      }
       setPath(shortest);
     } else {
       setStartNode(node);
       setEndNode(null);
       setPath([]);
+      resetZoom();
     }
   }
 
-  // KEEP ORIGINAL LOGIC EXACTLY AS IS
   function handleGridClick(r, c) {
     if (grid[r][c] === 0) return;
 
     if (!start) {
       setStart([r, c]);
+      hasZoomedToPath.current = false;
     } else if (!end) {
       setEnd([r, c]);
-      const shortest = bfs(grid, start, [r, c]);
+      const cacheKey = `${start[0]},${start[1]}-${r},${c}`;
+      let shortest = pathCacheRef.current.get(cacheKey);
+      if (!shortest) {
+        shortest = bfs(grid, [start[0], start[1]], [r, c]);
+        pathCacheRef.current.set(cacheKey, shortest);
+      }
       setPath(shortest);
     } else {
       setStart([r, c]);
       setEnd(null);
       setPath([]);
+      resetZoom();
     }
   }
 
-  // KEEP ORIGINAL LOGIC EXACTLY AS IS
   const rowToLetter = (r) => String.fromCharCode(65 + r);
   const getCoord = (r, c) => `${rowToLetter(r)}${c + 1}`;
 
@@ -103,11 +930,11 @@ function App() {
     setStartNode(null);
     setEndNode(null);
     setPath([]);
+    resetZoom();
   };
 
   return (
     <div className="app-wrapper">
-      {/* Top Navigation Bar */}
       <nav className="top-nav">
         <div className="nav-brand">
           <div className="logo">📍</div>
@@ -143,7 +970,6 @@ function App() {
       </nav>
 
       <div className="main-container">
-        {/* Left Sidebar */}
         <div className="left-sidebar">
           <div className="sidebar-section">
             <h3>Navigation Mode</h3>
@@ -171,13 +997,15 @@ function App() {
               <div className="info-row">
                 <span className="info-label">Start:</span>
                 <span className="info-value">
-                  {startNode?.name || (start ? getCoord(start[0], start[1]) : "Select a point")}
+                  {startNode?.name ||
+                    (start ? getCoord(start[0], start[1]) : "Select a point")}
                 </span>
               </div>
               <div className="info-row">
                 <span className="info-label">Destination:</span>
                 <span className="info-value">
-                  {endNode?.name || (end ? getCoord(end[0], end[1]) : "Select a point")}
+                  {endNode?.name ||
+                    (end ? getCoord(end[0], end[1]) : "Select a point")}
                 </span>
               </div>
               {path.length > 0 && (
@@ -187,13 +1015,9 @@ function App() {
                     <div className="distance-label">cells distance</div>
                   </div>
                   <div className="path-stats">
-                    <div className="path-stat">
-                      <span>Steps:</span>
-                      <strong>{path.length}</strong>
-                    </div>
-                    <div className="path-stat">
-                      <span>Status:</span>
-                      <span className="status-active">✓ Route Found</span>
+                    <div className="path-stat status-active">
+                      <span className="minimal-pulse"></span>
+                      <span>Sleek Animation Active</span>
                     </div>
                   </div>
                 </>
@@ -202,9 +1026,67 @@ function App() {
           </div>
 
           <div className="sidebar-section">
+            <h3>Zoom Controls</h3>
+            <div className="zoom-controls">
+              <button
+                className="zoom-btn"
+                onClick={() => {
+                  hasZoomedToPath.current = false;
+                  setZoomState((prev) => ({
+                    ...prev,
+                    scale: Math.min(4, prev.scale * 1.2),
+                  }));
+                }}
+                disabled={zoomState.isAnimating}
+              >
+                <span className="zoom-icon">➕</span>
+                Zoom In
+              </button>
+              <button
+                className="zoom-btn"
+                onClick={() => {
+                  hasZoomedToPath.current = false;
+                  setZoomState((prev) => ({
+                    ...prev,
+                    scale: Math.max(0.5, prev.scale * 0.8),
+                  }));
+                }}
+                disabled={zoomState.isAnimating}
+              >
+                <span className="zoom-icon">➖</span>
+                Zoom Out
+              </button>
+              <button
+                className="zoom-btn"
+                onClick={resetZoom}
+                disabled={zoomState.isAnimating}
+              >
+                <span className="zoom-icon">⟲</span>
+                Reset View
+              </button>
+              {path.length > 0 && (
+                <button
+                  className="zoom-btn highlight"
+                  onClick={() => {
+                    hasZoomedToPath.current = false;
+                    requestAnimationFrame(zoomToPath);
+                  }}
+                  disabled={zoomState.isAnimating || hasZoomedToPath.current}
+                >
+                  <span className="zoom-icon">🔍</span>
+                  Focus Path
+                </button>
+              )}
+            </div>
+          </div>
+
+          <div className="sidebar-section">
             <h3>Quick Actions</h3>
             <div className="action-buttons">
-              <button className="action-btn clear-btn" onClick={handleClearPath}>
+              <button
+                className="action-btn clear-btn"
+                onClick={handleClearPath}
+              >
                 <span className="btn-icon">🗑️</span>
                 Clear Path
               </button>
@@ -216,138 +1098,147 @@ function App() {
           </div>
         </div>
 
-        {/* Main Map Area - KEEPING ORIGINAL CODE EXACTLY */}
+        {/* Main Map Area */}
         <div className="map-area">
           <div className="map-header">
             <h2>Campus Map</h2>
             <div className="map-info">
-              <span className="grid-dimensions">{rows} × {cols} Grid</span>
+              <span className="grid-dimensions">
+                {rows} × {cols} Grid
+              </span>
               <span className="walkable-cells">
-                {grid.flat().filter(cell => cell === 1).length} walkable cells
+                {grid.flat().filter((cell) => cell === 1).length} walkable cells
+              </span>
+              <span className="zoom-level">
+                Zoom: {Math.round(zoomState.scale * 100)}%
+                {zoomState.isAnimating && " ⚡"}
               </span>
             </div>
           </div>
 
-          <div className="map-container-wrapper">
-            {/* EXACT ORIGINAL MAP IMPLEMENTATION - NO CHANGES */}
-            <div style={{ position: "relative", display: "inline-block" }}>
+          <div
+            ref={mapContainerRef}
+            className="map-container-wrapper"
+            onWheel={debouncedWheel}
+            onMouseDown={handleMouseDown}
+            style={{ touchAction: "manipulation" }}
+          >
+            <div
+              style={{
+                transform: `translate(${zoomState.translateX}px, ${zoomState.translateY}px) scale(${zoomState.scale})`,
+                transformOrigin: "0 0",
+                transition: zoomState.isAnimating
+                  ? "transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1)"
+                  : "none",
+                willChange: "transform",
+                backfaceVisibility: "hidden",
+                perspective: 1000,
+                transformStyle: "preserve-3d",
+                position: "relative",
+                display: "inline-block",
+              }}
+            >
               <img
                 ref={imgRef}
-                src="/traced-lines.png"
+                src="/traced-lines-cropped.png"
                 alt="map"
                 onLoad={handleImageLoad}
-                style={{ display: "block", borderRadius: "8px", boxShadow: "0 4px 12px rgba(0,0,0,0.1)" }}
+                style={{
+                  display: "block",
+                  borderRadius: "8px",
+                  userSelect: "none",
+                }}
               />
               {imgSize.width > 0 && (
-                <div
-                  style={{
-                    position: "absolute",
-                    top: 0,
-                    left: 0,
-                    display: "grid",
-                    gridTemplateRows: `repeat(${rows}, ${cellHeight}px)`,
-                    gridTemplateColumns: `repeat(${cols}, ${cellWidth}px)`,
-                  }}
-                >
-                  {grid.map((row, r) =>
-                    row.map((_, c) => {
-                      const isStart = start?.[0] === r && start?.[1] === c;
-                      const isEnd = end?.[0] === r && end?.[1] === c;
-                      const isInPath = path.some((p) => p[0] === r && p[1] === c);
-
-                      return (
-                        <div
-                          key={`${r}-${c}`}
-                          onClick={() => activeTab === "grid" && handleGridClick(r, c)}
-                          style={{
-                            background: isStart
-                              ? "rgba(0,255,0,0.6)"
-                              : isEnd
-                                ? "rgba(255,0,0,0.6)"
-                                : isInPath
-                                  ? "rgba(0,0,255,0.5)"
-                                  : grid[r][c] === 1
-                                    ? "rgba(0,255,0,0.15)"
-                                    : "transparent",
-                            cursor: activeTab === "grid" && grid[r][c] === 1 ? "pointer" : "default",
-                          }}
-                        />
-                      );
-                    }),
+                <>
+                  <CanvasGridLayer
+                    rows={rows}
+                    cols={cols}
+                    cellWidth={cellWidth}
+                    cellHeight={cellHeight}
+                    grid={grid}
+                    start={start}
+                    end={end}
+                    path={path}
+                    activeTab={activeTab}
+                    handleGridClick={handleGridClick}
+                    imgWidth={imgSize.width}
+                    imgHeight={imgSize.height}
+                  />
+                  {path.length > 1 && (
+                    <SleekAnimatedPath
+                      path={path}
+                      cellWidth={cellWidth}
+                      cellHeight={cellHeight}
+                      imgWidth={imgSize.width}
+                      imgHeight={imgSize.height}
+                    />
                   )}
 
-                  {/* Render nodes */}
-                  {nodes &&
-                    nodes.map((node) => (
-                      <div
-                        key={node.id}
-                        style={{
-                          position: "absolute",
-                          left: `${node.col * cellWidth - (cellWidth * 1.5)}px`,
-                          top: `${node.row * cellHeight - (cellHeight * 1.5)}px`,
-                          width: `${cellWidth * 3}px`,
-                          height: `${cellHeight * 3}px`,
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "center",
-                          backgroundColor:
-                            startNode?.id === node.id
-                              ? "rgba(0,255,0,0.9)"
-                              : endNode?.id === node.id
-                                ? "rgba(255,0,0,0.9)"
-                                : node.type === "office"
-                                  ? "rgba(100,150,255,0.8)"
-                                  : node.type === "room"
-                                    ? "rgba(255,200,100,0.8)"
-                                    : "rgba(100,255,100,0.8)",
-                          borderRadius: "50%",
-                          cursor: activeTab === "locations" ? "pointer" : "default",
-                          border: "2px solid white",
-                          fontSize: "11px",
-                          fontWeight: "bold",
-                          color: "white",
-                          textAlign: "center",
-                          zIndex: 10,
-                          boxShadow: "0 0 5px rgba(0,0,0,0.5)",
-                          transition: "transform 0.2s ease",
-                        }}
-                        onClick={() => activeTab === "locations" && handleNodeClick(node)}
-                        title={node.name}
-                        onMouseEnter={(e) => e.currentTarget.style.transform = 'scale(1.1)'}
-                        onMouseLeave={(e) => e.currentTarget.style.transform = 'scale(1)'}
-                      >
-                        {node.name}
-                      </div>
-                    ))}
-                </div>
+                  {/* Start Icon */}
+                  {(start || startNode) && (
+                    <StartIcon
+                      position={
+                        start || (startNode && [startNode.row, startNode.col])
+                      }
+                      cellWidth={cellWidth}
+                      cellHeight={cellHeight}
+                    />
+                  )}
+
+                  {/* Destination Icon */}
+                  {(end || endNode) && (
+                    <DestinationIcon
+                      position={end || (endNode && [endNode.row, endNode.col])}
+                      cellWidth={cellWidth}
+                      cellHeight={cellHeight}
+                    />
+                  )}
+                </>
               )}
             </div>
+
+            {zoomState.scale > 1.1 && (
+              <div className="zoom-overlay">
+                <div className="zoom-indicator">
+                  <span className="zoom-scale">
+                    {Math.round(zoomState.scale * 100)}%
+                  </span>
+                  {!zoomState.isAnimating && (
+                    <span className="zoom-hint">
+                      Drag to pan • Scroll to zoom
+                    </span>
+                  )}
+                </div>
+              </div>
+            )}
           </div>
 
-          <div className="map-legend">
-            <div className="legend-item">
-              <div className="legend-color start-color"></div>
+          <div className="map-legend slim">
+            <div className="legend-item slim">
+              <div className="legend-color start-color slim"></div>
               <span>Start Point</span>
             </div>
-            <div className="legend-item">
-              <div className="legend-color end-color"></div>
+            <div className="legend-item slim">
+              <div className="legend-color end-color slim"></div>
               <span>Destination</span>
             </div>
-            <div className="legend-item">
-              <div className="legend-color path-color"></div>
-              <span>Path</span>
+            <div className="legend-item slim">
+              <div className="legend-color sleek-path-color"></div>
+              <span>Animated Path</span>
             </div>
-            <div className="legend-item">
-              <div className="legend-color walkable-color"></div>
+            <div className="legend-item slim">
+              <div className="legend-color walkable-color slim"></div>
               <span>Walkable Area</span>
             </div>
           </div>
         </div>
 
-        {/* Right Sidebar */}
         <div className="right-sidebar">
           <div className="sidebar-section">
-            <h3>{activeTab === "locations" ? "📍 Locations" : "🗺️ Grid Points"}</h3>
+            <h3>
+              {activeTab === "locations" ? "📍 Locations" : "🗺️ Grid Points"}
+            </h3>
 
             {activeTab === "locations" ? (
               <div className="locations-list">
@@ -367,10 +1258,15 @@ function App() {
                           <div className="location-name">{node.name}</div>
                           <div className="location-type">{node.type}</div>
                         </div>
-                        <div className="location-coords">{getCoord(node.row, node.col)}</div>
+                        <div className="location-coords">
+                          {getCoord(node.row, node.col)}
+                        </div>
                         <div className="location-icon">
-                          {node.type === "office" ? "🏢" :
-                           node.type === "room" ? "🚪" : "📍"}
+                          {node.type === "office"
+                            ? "🏢"
+                            : node.type === "room"
+                              ? "🚪"
+                              : "📍"}
                         </div>
                       </div>
                     ))
@@ -382,10 +1278,10 @@ function App() {
             ) : (
               <div className="grid-info">
                 <p>Click on any green cell to set a grid point.</p>
-                <p>Walkable cells are highlighted in light green.</p>
                 {start && (
                   <div className="selected-point">
-                    <strong>Selected Start:</strong> {getCoord(start[0], start[1])}
+                    <strong>Selected Start:</strong>{" "}
+                    {getCoord(start[0], start[1])}
                   </div>
                 )}
                 {end && (
@@ -395,49 +1291,6 @@ function App() {
                 )}
               </div>
             )}
-          </div>
-
-          <div className="sidebar-section">
-            <h3>Navigation Details</h3>
-            <div className="details-card">
-              {(start || end || startNode || endNode) && (
-                <>
-                  <div className="detail-row">
-                    <strong>Current Path:</strong>
-                  </div>
-                  {startNode && (
-                    <div className="detail-item">
-                      <span className="detail-label">Start Node:</span>
-                      <span className="detail-value">{startNode.name}</span>
-                    </div>
-                  )}
-                  {start && !startNode && (
-                    <div className="detail-item">
-                      <span className="detail-label">Start Grid:</span>
-                      <span className="detail-value">{getCoord(start[0], start[1])}</span>
-                    </div>
-                  )}
-                  {endNode && (
-                    <div className="detail-item">
-                      <span className="detail-label">End Node:</span>
-                      <span className="detail-value">{endNode.name}</span>
-                    </div>
-                  )}
-                  {end && !endNode && (
-                    <div className="detail-item">
-                      <span className="detail-label">End Grid:</span>
-                      <span className="detail-value">{getCoord(end[0], end[1])}</span>
-                    </div>
-                  )}
-                  {path.length > 0 && (
-                    <div className="detail-item highlight">
-                      <span className="detail-label">Path Distance:</span>
-                      <span className="detail-value">{path.length} cells</span>
-                    </div>
-                  )}
-                </>
-              )}
-            </div>
           </div>
         </div>
       </div>
