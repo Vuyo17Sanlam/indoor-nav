@@ -1,20 +1,6 @@
 import { useEffect, useState, useRef, useCallback, useMemo, memo } from "react";
 import { bfs } from "./utils/pathfinding";
 
-// Throttle utility
-function throttle(func, limit) {
-  let inThrottle;
-  return function (...args) {
-    if (!inThrottle) {
-      func.apply(this, args);
-      inThrottle = true;
-      requestAnimationFrame(() => {
-        inThrottle = false;
-      });
-    }
-  };
-}
-
 // Start Point Icon Component - Blue pulsing dot (like Google Maps current location)
 const StartIcon = memo(({ position, cellWidth, cellHeight }) => {
   if (!position) return null;
@@ -643,19 +629,8 @@ function App() {
   // QR Scanner State
   const [showQRScanner, setShowQRScanner] = useState(false);
 
-  // Simplified zoom state
-  const [zoomState, setZoomState] = useState({
-    scale: 1,
-    translateX: 0,
-    translateY: 0,
-    isAnimating: false,
-  });
-
   const imgRef = useRef(null);
-  const mapContainerRef = useRef(null);
-  const lastMousePosition = useRef({ x: 0, y: 0 });
   const lastPathLength = useRef(0);
-  const hasZoomedToPath = useRef(false);
   const pathCacheRef = useRef(new Map()); // Cache for pathfinding results
 
   // Load roof refs from file on startup, fallback to localStorage
@@ -702,179 +677,6 @@ function App() {
       });
   }, []);
 
-  // Optimized zoom animation using CSS transitions
-  const zoomToPath = useCallback(() => {
-    if (
-      !gridData ||
-      !path.length ||
-      !imgSize.width ||
-      !imgSize.height ||
-      hasZoomedToPath.current
-    ) {
-      return;
-    }
-
-    const cellWidth = imgSize.width / gridData.cols;
-    const cellHeight = imgSize.height / gridData.rows;
-
-    // Quick bounds calculation
-    let minX = Infinity,
-      maxX = -Infinity,
-      minY = Infinity,
-      maxY = -Infinity;
-    for (let i = 0; i < path.length; i++) {
-      const [r, c] = path[i];
-      const x = c * cellWidth;
-      const y = r * cellHeight;
-      if (x < minX) minX = x;
-      if (x > maxX) maxX = x;
-      if (y < minY) minY = y;
-      if (y > maxY) maxY = y;
-    }
-
-    // Add minimal padding
-    const padding = 40;
-    minX = Math.max(0, minX - padding);
-    maxX = Math.min(imgSize.width, maxX + padding);
-    minY = Math.max(0, minY - padding);
-    maxY = Math.min(imgSize.height, maxY + padding);
-
-    const pathWidth = maxX - minX;
-    const pathHeight = maxY - minY;
-
-    if (mapContainerRef.current && pathWidth > 0 && pathHeight > 0) {
-      const containerWidth = mapContainerRef.current.clientWidth;
-      const containerHeight = mapContainerRef.current.clientHeight;
-
-      const scaleX = containerWidth / pathWidth;
-      const scaleY = containerHeight / pathHeight;
-      const targetScale = Math.min(scaleX, scaleY, 2.5); // Reduced max zoom
-
-      const targetX = containerWidth / 2 - (minX + pathWidth / 2) * targetScale;
-      const targetY =
-        containerHeight / 2 - (minY + pathHeight / 2) * targetScale;
-
-      // Mark that we've zoomed to this path
-      hasZoomedToPath.current = true;
-      lastPathLength.current = path.length;
-
-      // Use CSS transitions for smooth animation
-      setZoomState((prev) => ({
-        ...prev,
-        scale: targetScale,
-        translateX: targetX,
-        translateY: targetY,
-        isAnimating: true,
-      }));
-
-      // Clear animation state after transition
-      setTimeout(() => {
-        setZoomState((prev) => ({ ...prev, isAnimating: false }));
-      }, 600); // Match CSS transition duration
-    }
-  }, [path, imgSize, gridData]);
-
-  // Reset zoom - optimized
-  const resetZoom = useCallback(() => {
-    hasZoomedToPath.current = false;
-    setZoomState({
-      scale: 1,
-      translateX: 0,
-      translateY: 0,
-      isAnimating: true,
-    });
-
-    setTimeout(() => {
-      setZoomState((prev) => ({ ...prev, isAnimating: false }));
-    }, 400);
-  }, []);
-
-  // Highly optimized wheel handler with minimal calculations
-  const handleWheel = useCallback(
-    (e) => {
-      e.preventDefault();
-
-      if (zoomState.isAnimating) return;
-
-      // Use delta to determine zoom direction
-      const zoomFactor = e.deltaY > 0 ? 0.9 : 1.1;
-      const newScale = Math.max(0.5, Math.min(4, zoomState.scale * zoomFactor));
-
-      // Skip if scale hasn't changed significantly
-      if (Math.abs(newScale - zoomState.scale) < 0.01) return;
-
-      hasZoomedToPath.current = false;
-
-      // Use getBoundingClientRect only once
-      const rect = mapContainerRef.current.getBoundingClientRect();
-      const mouseX = e.clientX - rect.left;
-      const mouseY = e.clientY - rect.top;
-
-      // Fast zoom calculation
-      const scaleDiff = newScale / zoomState.scale;
-      const newTranslateX =
-        mouseX - (mouseX - zoomState.translateX) * scaleDiff;
-      const newTranslateY =
-        mouseY - (mouseY - zoomState.translateY) * scaleDiff;
-
-      // Single state update for efficiency
-      setZoomState({
-        scale: newScale,
-        translateX: newTranslateX,
-        translateY: newTranslateY,
-        isAnimating: false,
-      });
-    },
-    [zoomState],
-  );
-
-  // Debounced version for wheel events (60fps safe: ~33ms minimum)
-  const debouncedWheel = useCallback(throttle(handleWheel, 40), [handleWheel]);
-
-  // Optimized mouse handlers with requestAnimationFrame for smooth panning
-  const handleMouseDown = useCallback(
-    (e) => {
-      if (zoomState.scale <= 1.1 || zoomState.isAnimating) return;
-
-      lastMousePosition.current = { x: e.clientX, y: e.clientY };
-      let animationFrameId = null;
-
-      const handleMouseMove = (moveEvent) => {
-        if (animationFrameId !== null) {
-          cancelAnimationFrame(animationFrameId);
-        }
-
-        animationFrameId = requestAnimationFrame(() => {
-          const dx = moveEvent.clientX - lastMousePosition.current.x;
-          const dy = moveEvent.clientY - lastMousePosition.current.y;
-
-          setZoomState((prev) => ({
-            ...prev,
-            translateX: prev.translateX + dx,
-            translateY: prev.translateY + dy,
-          }));
-
-          lastMousePosition.current = {
-            x: moveEvent.clientX,
-            y: moveEvent.clientY,
-          };
-        });
-      };
-
-      const handleMouseUp = () => {
-        if (animationFrameId !== null) {
-          cancelAnimationFrame(animationFrameId);
-        }
-        document.removeEventListener("mousemove", handleMouseMove);
-        document.removeEventListener("mouseup", handleMouseUp);
-      };
-
-      document.addEventListener("mousemove", handleMouseMove);
-      document.addEventListener("mouseup", handleMouseUp);
-    },
-    [zoomState.scale, zoomState.isAnimating],
-  );
-
   // Get actual image dimensions
   const handleImageLoad = () => {
     if (imgRef.current) {
@@ -884,26 +686,6 @@ function App() {
       });
     }
   };
-
-  // Control path zoom - only zoom when path changes significantly
-  useEffect(() => {
-    if (path.length > 0 && path.length !== lastPathLength.current) {
-      hasZoomedToPath.current = false;
-      // Use requestAnimationFrame instead of setTimeout for better timing
-      const frameId = requestAnimationFrame(() => {
-        zoomToPath();
-      });
-      return () => cancelAnimationFrame(frameId);
-    }
-  }, [path.length, zoomToPath]);
-
-  // Clear zoom flag when path is cleared
-  useEffect(() => {
-    if (path.length === 0) {
-      hasZoomedToPath.current = false;
-      lastPathLength.current = 0;
-    }
-  }, [path.length]);
 
   if (!gridData)
     return (
@@ -930,7 +712,6 @@ function App() {
   function handleNodeClick(node) {
     if (!startNode) {
       setStartNode(node);
-      hasZoomedToPath.current = false;
     } else if (!endNode) {
       setEndNode(node);
       const cacheKey = `${startNode.row},${startNode.col}-${node.row},${node.col}`;
@@ -948,7 +729,6 @@ function App() {
       setStartNode(node);
       setEndNode(null);
       setPath([]);
-      resetZoom();
     }
   }
 
@@ -957,7 +737,6 @@ function App() {
 
     if (!start) {
       setStart([r, c]);
-      hasZoomedToPath.current = false;
     } else if (!end) {
       setEnd([r, c]);
       const cacheKey = `${start[0]},${start[1]}-${r},${c}`;
@@ -971,7 +750,6 @@ function App() {
       setStart([r, c]);
       setEnd(null);
       setPath([]);
-      resetZoom();
     }
   }
 
@@ -1000,7 +778,6 @@ function App() {
       setEnd(null);
       setStartNode(null);
       setEndNode(null);
-      hasZoomedToPath.current = false;
     }
   }
 
@@ -1043,7 +820,6 @@ function App() {
     setStartRoofRef(null);
     setEndRoofRef(null);
     setPath([]);
-    resetZoom();
   };
   // Handle QR Code Scan
   function handleQRCodeScan(code) {
@@ -1233,35 +1009,12 @@ function App() {
               <span className="walkable-cells">
                 {grid.flat().filter((cell) => cell === 1).length} walkable cells
               </span>
-              <span className="zoom-level">
-                Zoom: {Math.round(zoomState.scale * 100)}%
-                {zoomState.isAnimating && " ⚡"}
-              </span>
+              <span className="zoom-level">Zoom: 100%</span>
             </div>
           </div>
 
-          <div
-            ref={mapContainerRef}
-            className="map-container-wrapper"
-            onWheel={debouncedWheel}
-            onMouseDown={handleMouseDown}
-            style={{ touchAction: "manipulation" }}
-          >
-            <div
-              style={{
-                transform: `translate(${zoomState.translateX}px, ${zoomState.translateY}px) scale(${zoomState.scale})`,
-                transformOrigin: "0 0",
-                transition: zoomState.isAnimating
-                  ? "transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1)"
-                  : "none",
-                willChange: "transform",
-                backfaceVisibility: "hidden",
-                perspective: 1000,
-                transformStyle: "preserve-3d",
-                position: "relative",
-                display: "inline-block",
-              }}
-            >
+          <div className="map-container-wrapper">
+            <div>
               <img
                 ref={imgRef}
                 src="/traced-lines-cropped.png"
@@ -1328,21 +1081,6 @@ function App() {
                 </>
               )}
             </div>
-
-            {zoomState.scale > 1.1 && (
-              <div className="zoom-overlay">
-                <div className="zoom-indicator">
-                  <span className="zoom-scale">
-                    {Math.round(zoomState.scale * 100)}%
-                  </span>
-                  {!zoomState.isAnimating && (
-                    <span className="zoom-hint">
-                      Drag to pan • Scroll to zoom
-                    </span>
-                  )}
-                </div>
-              </div>
-            )}
           </div>
 
           <div className="map-legend slim">
@@ -1441,7 +1179,6 @@ function App() {
                             setStartNode(null);
                             setEndNode(null);
                             setPath([]);
-                            hasZoomedToPath.current = false;
                           } else if (!endRoofRef) {
                             setEndRoofRef(ref);
                             handleRoofRefNavigation(
@@ -1452,7 +1189,6 @@ function App() {
                             setStartRoofRef(ref);
                             setEndRoofRef(null);
                             setPath([]);
-                            resetZoom();
                           }
                         }}
                         style={{ cursor: "pointer" }}
