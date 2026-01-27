@@ -119,7 +119,7 @@ DestinationIcon.displayName = "DestinationIcon";
 const SleekAnimatedPath = memo(
   ({ path, cellWidth, cellHeight, imgWidth, imgHeight, scale }) => {
     const canvasRef = useRef(null);
-    const [progress, setProgress] = useState(0);
+    const [, setProgress] = useState(0);
 
     // Helper functions for bezier calculations
     function bezierPoint(p0, p1, p2, p3, t) {
@@ -649,10 +649,8 @@ const MapComponent = memo(
         if (!imgWidth || !imgHeight || !containerWidth) return 1;
 
         // Maintain aspect ratio while fitting to container
-        const aspectRatio = imgHeight / imgWidth;
         const maxWidth = Math.min(containerWidth, imgWidth);
         const calculatedWidth = maxWidth;
-        const calculatedHeight = calculatedWidth * aspectRatio;
 
         // Calculate scale factor relative to original size
         return calculatedWidth / imgWidth;
@@ -720,7 +718,7 @@ const MapComponent = memo(
     }, [calculateScale, onImageLoad]);
 
     // Handle image load
-    const handleImageLoad = () => {
+    const handleImageLoad = useCallback(() => {
       if (imgRef.current && containerRef.current) {
         const containerWidth = containerRef.current.clientWidth;
         const originalWidth = imgRef.current.naturalWidth;
@@ -754,14 +752,14 @@ const MapComponent = memo(
           });
         }
       }
-    };
+    }, [calculateScale, onImageLoad]); // Add dependencies here
 
     // Preload image if already loaded
     useEffect(() => {
       if (imgRef.current?.complete) {
         handleImageLoad();
       }
-    }, []);
+    }, [handleImageLoad]);
 
     if (!gridData) return null;
 

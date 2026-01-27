@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef, useCallback, memo } from "react";
+import { useEffect, useState, useRef, useCallback } from "react";
 import { bfs } from "./utils/pathfinding";
 import RightNavbar from "./components/RightNavbar";
 import MapComponent from "./components/MapComponent";
@@ -10,7 +10,7 @@ function App() {
   const [startNode, setStartNode] = useState(null);
   const [endNode, setEndNode] = useState(null);
   const [path, setPath] = useState([]);
-  const [imgSize, setImgSize] = useState({ width: 0, height: 0 });
+  const [, setImgSize] = useState({ width: 0, height: 0 });
   const [activeTab, setActiveTab] = useState("roofRef");
   const [stats, setStats] = useState({ totalNodes: 0, offices: 0, rooms: 0 });
 
