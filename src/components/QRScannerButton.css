@@ -1,0 +1,99 @@
+/* QRScannerButton.css */
+.qr-scanner-container {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.qr-scanner-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+  border: none;
+  border-radius: 6px;
+  color: white;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  font-size: 13px;
+  font-weight: 500;
+  min-width: 90px;
+  justify-content: center;
+  box-shadow: 0 1px 3px rgba(59, 130, 246, 0.2);
+}
+
+.qr-scanner-btn:hover {
+  background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+  transform: translateY(-1px);
+  box-shadow: 0 2px 6px rgba(59, 130, 246, 0.3);
+}
+
+.qr-scanner-btn:active {
+  transform: translateY(0);
+}
+
+.qr-scanner-btn.scanning {
+  background: linear-gradient(135deg, #6b7280 0%, #4b5563 100%);
+  cursor: wait;
+  animation: pulse 1.5s infinite;
+}
+
+.qr-scanner-btn:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+.qr-icon {
+  font-size: 14px;
+  opacity: 0.9;
+}
+
+.qr-text {
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.qr-manual-option {
+  opacity: 0;
+  transform: translateX(-10px);
+  transition: all 0.3s ease;
+}
+
+.qr-scanner-container:hover .qr-manual-option {
+  opacity: 1;
+  transform: translateX(0);
+}
+
+.qr-manual-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  background: #f3f4f6;
+  border: 1px solid #d1d5db;
+  border-radius: 4px;
+  color: #6b7280;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-size: 12px;
+  padding: 0;
+}
+
+.qr-manual-btn:hover {
+  background: #e5e7eb;
+  color: #374151;
+  border-color: #9ca3af;
+}
+
+@keyframes pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.7;
+  }
+}

@@ -1,7 +1,15 @@
 /* Cleaned CSS File */
 body {
   margin: 0;
-  font-family: "Montserrat", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  font-family:
+    "Montserrat",
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    Roboto,
+    "Helvetica Neue",
+    Arial,
+    sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   overscroll-behavior-y: contain; /* Prevent pull-to-refresh */
@@ -9,7 +17,8 @@ body {
 }
 
 code {
-  font-family: "SF Mono", "Roboto Mono", Menlo, Monaco, Consolas, "Courier New", monospace;
+  font-family:
+    "SF Mono", "Roboto Mono", Menlo, Monaco, Consolas, "Courier New", monospace;
 }
 
 /* App Wrapper */
@@ -976,4 +985,34 @@ code {
 .left-sidebar > .sidebar-section:nth-last-child(2),
 .sidebar-section:has(.path-info-card) {
   display: none !important;
+}
+.app-wrapper {
+  overflow-x: hidden !important;
+  width: 100vw !important;
+  max-width: 100% !important;
+}
+
+.main-container {
+  overflow-x: hidden !important;
+}
+
+.map-area {
+  overflow: hidden !important;
+}
+
+/* Add these to your existing media query */
+@media (max-width: 768px) {
+  .app-wrapper {
+    overflow-x: hidden !important;
+  }
+
+  .main-container {
+    overflow-x: hidden !important;
+  }
+
+  .map-area,
+  .left-sidebar,
+  .right-navbar {
+    overflow-x: hidden !important;
+  }
 }

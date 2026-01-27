@@ -1062,3 +1062,47 @@ body {
     -webkit-tap-highlight-color: transparent;
   }
 }
+.app-wrapper {
+  width: 100vw;
+  height: 100vh;
+  overflow: hidden;
+}
+
+.main-container {
+  display: flex;
+  height: calc(100vh - 80px); /* Adjust based on your nav height */
+  overflow: hidden;
+}
+
+.right-navbar {
+  width: 320px;
+  min-width: 320px;
+  height: 100%;
+  overflow: hidden;
+  background: linear-gradient(135deg, #1f2937, #111827);
+  border-left: 1px solid #374151;
+}
+
+/* Responsive design */
+@media (max-width: 1200px) {
+  .right-navbar {
+    width: 280px;
+    min-width: 280px;
+  }
+}
+
+@media (max-width: 768px) {
+  .main-container {
+    flex-direction: column;
+    height: auto;
+  }
+
+  .right-navbar {
+    width: 100%;
+    height: auto;
+    min-height: 300px;
+    max-height: 50vh;
+    min-width: unset;
+    order: 3;
+  }
+}

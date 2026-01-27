@@ -30,7 +30,6 @@ function App() {
   const [locationsSearch, setLocationsSearch] = useState("");
 
   // QR Scanner State
-  const [showQRScanner, setShowQRScanner] = useState(false);
 
   const pathCacheRef = useRef(new Map());
 
@@ -179,33 +178,159 @@ function App() {
     setPath([]);
   };
 
-  // Handle QR Code Scan
-  function handleQRCodeScan(code) {
-    console.log("QR Code scanned:", code);
+  // Handle QR Code Scan Result
+  const handleQRCodeScan = useCallback(
+    (code) => {
+      console.log("QR Code scanned:", code);
 
-    if (code.startsWith("roof:")) {
-      const roofCode = code.replace("roof:", "");
-      const roofRef = roofRefs.find((r) => r.code === roofCode);
-      if (roofRef) {
-        if (!startRoofRef) {
-          setStartRoofRef(roofRef);
-          setSelectedStart(roofRef);
-        } else if (!endRoofRef) {
-          setEndRoofRef(roofRef);
-          setSelectedEnd(roofRef);
-          handleRoofRefNavigation(startRoofRef.code, roofCode);
+      // Parse QR code content
+      if (code.startsWith("roof:")) {
+        const roofCode = code.replace("roof:", "");
+        const roofRef = roofRefs.find((r) => r.code === roofCode);
+        if (roofRef) {
+          if (!selectedStart) {
+            // Set as start location
+            setSelectedStart(roofRef);
+            setStartRoofRef(roofRef);
+            setStartNode(null);
+            setStart(null);
+          } else if (!selectedEnd) {
+            // Set as destination and calculate path
+            setSelectedEnd(roofRef);
+            setEndRoofRef(roofRef);
+            handleRoofRefNavigation(startRoofRef?.code, roofCode);
+          } else {
+            // Replace current start with new scan
+            setSelectedStart(roofRef);
+            setStartRoofRef(roofRef);
+            setSelectedEnd(null);
+            setEndRoofRef(null);
+            setPath([]);
+          }
         } else {
-          setStartRoofRef(roofRef);
-          setSelectedStart(roofRef);
-          setEndRoofRef(null);
-          setSelectedEnd(null);
-          setPath([]);
+          alert(`Roof reference "${roofCode}" not found in the system.`);
+        }
+      } else if (code.includes(":")) {
+        // Handle other QR code formats (room:101, office:202, etc.)
+        const [type, id] = code.split(":");
+        const node = gridData?.nodes?.find(
+          (n) => n.type === type && (n.id === id || n.name === id),
+        );
+        if (node) {
+          if (!selectedStart) {
+            setSelectedStart(node);
+            setStartNode(node);
+            setStartRoofRef(null);
+            setStart([node.row, node.col]);
+          } else if (!selectedEnd) {
+            setSelectedEnd(node);
+            setEndNode(node);
+            setEndRoofRef(null);
+            setEnd([node.row, node.col]);
+
+            if (startNode) {
+              const cacheKey = `${startNode.row},${startNode.col}-${node.row},${node.col}`;
+              let shortest = pathCacheRef.current.get(cacheKey);
+              if (!shortest) {
+                shortest = bfs(
+                  gridData?.grid,
+                  [startNode.row, startNode.col],
+                  [node.row, node.col],
+                );
+                pathCacheRef.current.set(cacheKey, shortest);
+              }
+              setPath(shortest);
+            }
+          } else {
+            setSelectedStart(node);
+            setStartNode(node);
+            setStartRoofRef(null);
+            setStart([node.row, node.col]);
+            setSelectedEnd(null);
+            setEndNode(null);
+            setEndRoofRef(null);
+            setEnd(null);
+            setPath([]);
+          }
+        }
+      } else {
+        // Try to find by code or name
+        const allLocations = [...roofRefs, ...(gridData?.nodes || [])];
+        const location = allLocations.find(
+          (item) => item.code === code || item.name === code,
+        );
+        if (location) {
+          if (!selectedStart) {
+            setSelectedStart(location);
+            if (location.type) {
+              setStartNode(location);
+              setStart([location.row, location.col]);
+              setStartRoofRef(null);
+            } else {
+              setStartRoofRef(location);
+              setStartNode(null);
+              setStart(null);
+            }
+          } else if (!selectedEnd) {
+            setSelectedEnd(location);
+            if (location.type) {
+              setEndNode(location);
+              setEnd([location.row, location.col]);
+              setEndRoofRef(null);
+              if (startNode) {
+                const cacheKey = `${startNode.row},${startNode.col}-${location.row},${location.col}`;
+                let shortest = pathCacheRef.current.get(cacheKey);
+                if (!shortest) {
+                  shortest = bfs(
+                    gridData?.grid,
+                    [startNode.row, startNode.col],
+                    [location.row, location.col],
+                  );
+                  pathCacheRef.current.set(cacheKey, shortest);
+                }
+                setPath(shortest);
+              }
+            } else {
+              setEndRoofRef(location);
+              setEndNode(null);
+              setEnd(null);
+              if (startRoofRef) {
+                handleRoofRefNavigation(startRoofRef.code, location.code);
+              }
+            }
+          } else {
+            setSelectedStart(location);
+            setSelectedEnd(null);
+            setPath([]);
+            if (location.type) {
+              setStartNode(location);
+              setStart([location.row, location.col]);
+              setStartRoofRef(null);
+              setEndNode(null);
+              setEnd(null);
+            } else {
+              setStartRoofRef(location);
+              setStartNode(null);
+              setStart(null);
+              setEndRoofRef(null);
+              setEndNode(null);
+            }
+          }
+        } else {
+          alert(`Location "${code}" not found in the system.`);
         }
       }
-    }
-
-    setShowQRScanner(false);
-  }
+    },
+    [
+      roofRefs,
+      gridData,
+      selectedStart,
+      selectedEnd,
+      startNode,
+      startRoofRef,
+      handleRoofRefNavigation,
+    ],
+  );
 
   if (!gridData)
     return (
@@ -227,35 +352,35 @@ function App() {
   return (
     <div className="app-wrapper">
       <style>{`
+        @media (max-width: 768px) {
+          .main-container {
+            display: flex !important;
+            flex-direction: column !important;
+            height: auto !important;
+          }
 
-      @media (max-width: 768px) {
-  .main-container {
-    display: flex !important;
-    flex-direction: column !important;
-    height: auto !important;
-  }
+          .map-area {
+            order: 1 !important;
+            height: 60vh !important;
+            min-height: 400px !important;
+            width: 100% !important;
+          }
 
-  .map-area {
-    order: 1 !important;
-    height: 60vh !important;
-    min-height: 400px !important;
-    width: 100% !important;
-  }
+          .left-sidebar {
+            order: 2 !important;
+            width: 100% !important;
+            max-height: 30vh !important;
+            overflow-y: auto !important;
+          }
 
-  .left-sidebar {
-    order: 2 !important;
-    width: 100% !important;
-    max-height: 30vh !important;
-    overflow-y: auto !important;
-  }
+          .right-navbar {
+            order: 3 !important;
+            width: 100% !important;
+            max-height: 30vh !important;
+            overflow-y: auto !important;
+          }
+        }
 
-  .right-navbar {
-    order: 3 !important;
-    width: 100% !important;
-    max-height: 30vh !important;
-    overflow-y: auto !important;
-  }
-}
         .input-section {
           margin-bottom: 16px;
         }
@@ -390,6 +515,54 @@ function App() {
             opacity: 1;
             transform: translateY(0);
           }
+        }
+
+        .qr-code-section {
+          margin-top: 20px;
+          padding: 15px;
+          background: linear-gradient(135deg, #1f2937, #111827);
+          border-radius: 10px;
+          border: 1px solid #374151;
+        }
+
+        .qr-code-btn {
+          width: 100%;
+          padding: 12px;
+          background: linear-gradient(135deg, #6366f1, #8b5cf6);
+          color: white;
+          border: none;
+          border-radius: 8px;
+          font-size: 16px;
+          font-weight: 600;
+          cursor: pointer;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 10px;
+          transition: all 0.3s;
+        }
+
+        .qr-code-btn:hover {
+          background: linear-gradient(135deg, #8b5cf6, #6366f1);
+          transform: translateY(-2px);
+          box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3);
+        }
+
+        .qr-code-btn-icon {
+          font-size: 20px;
+        }
+
+        .qr-code-info {
+          margin-top: 12px;
+          padding: 12px;
+          background: rgba(59, 130, 246, 0.1);
+          border-radius: 6px;
+          font-size: 14px;
+          color: #9ca3af;
+        }
+
+        .qr-code-info p {
+          margin: 6px 0;
         }
       `}</style>
 
@@ -572,23 +745,6 @@ function App() {
             </div>
           </div>
 
-          <div className="sidebar-section">
-            <h3>Quick Actions</h3>
-            <div className="action-buttons">
-              <button
-                className="action-btn clear-btn"
-                onClick={handleClearPath}
-              >
-                <span className="btn-icon">🗑️</span>
-                Clear Path
-              </button>
-              <button className="action-btn help-btn">
-                <span className="btn-icon">❓</span>
-                Help Guide
-              </button>
-            </div>
-          </div>
-
           <div className="quick-guide">
             <h3>
               <span className="quick-guide-icon">📋</span>
@@ -617,27 +773,6 @@ function App() {
                   navigation path
                 </li>
               </ul>
-            </div>
-          </div>
-
-          <div className="qr-code-section">
-            <button
-              className="qr-code-btn"
-              onClick={() => setShowQRScanner(true)}
-            >
-              <span className="qr-code-btn-icon">📷</span>
-              Scan QR Code
-            </button>
-
-            <div className="qr-code-info">
-              <p>
-                <strong>Fast access:</strong> Scan QR codes located around the
-                building to instantly navigate to that location.
-              </p>
-              <p>
-                QR codes are available at major junctions, meeting rooms, and
-                office entrances.
-              </p>
             </div>
           </div>
         </div>
@@ -718,76 +853,6 @@ function App() {
           setRoofRefSearch={setRoofRefSearch}
         />
       </div>
-
-      {showQRScanner && (
-        <div
-          className="qr-scanner-modal"
-          onClick={() => setShowQRScanner(false)}
-        >
-          <div
-            className="qr-scanner-content"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="qr-scanner-header">
-              <h3>
-                <span>📷</span>
-                QR Code Scanner
-              </h3>
-              <button
-                className="close-btn"
-                onClick={() => setShowQRScanner(false)}
-              >
-                ×
-              </button>
-            </div>
-
-            <div className="qr-scanner-placeholder">
-              <div className="qr-scanner-icon">📱</div>
-              <p>Position QR code within the frame to scan</p>
-            </div>
-
-            <div className="qr-scanner-instructions">
-              <h4>
-                <span>💡</span>
-                How to scan QR codes
-              </h4>
-              <ul>
-                <li>Ensure good lighting for better scanning</li>
-                <li>Hold your device steady</li>
-                <li>Position the QR code within the frame</li>
-                <li>The scanner will automatically detect the code</li>
-                <li>
-                  QR codes are located at building entrances and key locations
-                </li>
-              </ul>
-            </div>
-
-            <div
-              style={{
-                marginTop: "20px",
-                display: "flex",
-                gap: "10px",
-                justifyContent: "center",
-              }}
-            >
-              <button
-                className="action-btn help-btn"
-                style={{ padding: "10px 20px", fontSize: "0.9rem" }}
-                onClick={() => handleQRCodeScan("roof:A1")}
-              >
-                Demo: Scan A1
-              </button>
-              <button
-                className="action-btn clear-btn"
-                style={{ padding: "10px 20px", fontSize: "0.9rem" }}
-                onClick={() => handleQRCodeScan("roof:B3")}
-              >
-                Demo: Scan B3
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
