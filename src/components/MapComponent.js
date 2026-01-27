@@ -863,7 +863,7 @@ const MapComponent = memo(
               position: "absolute",
               bottom: 10,
               right: 10,
-              background: "rgba(0,0,0,0.7)",
+              background: "rgb(255, 255, 255)",
               color: "white",
               padding: "5px 10px",
               borderRadius: 5,
