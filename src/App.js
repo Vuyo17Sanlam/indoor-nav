@@ -115,8 +115,47 @@ DestinationIcon.displayName = "DestinationIcon";
 const SleekAnimatedPath = memo(
   ({ path, cellWidth, cellHeight, imgWidth, imgHeight }) => {
     const canvasRef = useRef(null);
-    const animationRef = useRef(null);
+    // eslint-disable-next-line no-unused-vars
     const [progress, setProgress] = useState(0);
+
+    // Helper functions for bezier calculations
+    function bezierPoint(p0, p1, p2, p3, t) {
+      const mt = 1 - t;
+      const mt2 = mt * mt;
+      const t2 = t * t;
+
+      return {
+        x:
+          mt2 * mt * p0.x +
+          3 * mt2 * t * p1.x +
+          3 * mt * t2 * p2.x +
+          t2 * t * p3.x,
+        y:
+          mt2 * mt * p0.y +
+          3 * mt2 * t * p1.y +
+          3 * mt * t2 * p2.y +
+          t2 * t * p3.y,
+      };
+    }
+
+    function distance(p1, p2) {
+      return Math.sqrt(Math.pow(p2.x - p1.x, 2) + Math.pow(p2.y - p1.y, 2));
+    }
+
+    const bezierLength = useCallback((p0, p1, p2, p3) => {
+      const steps = 20;
+      let length = 0;
+      let prev = p0;
+
+      for (let i = 1; i <= steps; i++) {
+        const t = i / steps;
+        const current = bezierPoint(p0, p1, p2, p3, t);
+        length += distance(prev, current);
+        prev = current;
+      }
+
+      return length;
+    }, []);
 
     // Calculate smooth path with catmull-rom splines for even smoother curves
     const smoothPath = useMemo(() => {
@@ -153,82 +192,52 @@ const SleekAnimatedPath = memo(
       }
 
       return segments;
-    }, [path, cellWidth, cellHeight]);
-
-    // Bezier helper functions
-    function bezierLength(p0, p1, p2, p3) {
-      const steps = 20;
-      let length = 0;
-      let prev = p0;
-
-      for (let i = 1; i <= steps; i++) {
-        const t = i / steps;
-        const current = bezierPoint(p0, p1, p2, p3, t);
-        length += distance(prev, current);
-        prev = current;
-      }
-
-      return length;
-    }
-
-    function bezierPoint(p0, p1, p2, p3, t) {
-      const mt = 1 - t;
-      const mt2 = mt * mt;
-      const t2 = t * t;
-
-      return {
-        x:
-          mt2 * mt * p0.x +
-          3 * mt2 * t * p1.x +
-          3 * mt * t2 * p2.x +
-          t2 * t * p3.x,
-        y:
-          mt2 * mt * p0.y +
-          3 * mt2 * t * p1.y +
-          3 * mt * t2 * p2.y +
-          t2 * t * p3.y,
-      };
-    }
-
-    function distance(p1, p2) {
-      return Math.sqrt(Math.pow(p2.x - p1.x, 2) + Math.pow(p2.y - p1.y, 2));
-    }
+    }, [path, cellWidth, cellHeight, bezierLength]);
 
     // Get point and direction at specific progress
-    function getPointOnPath(progressValue) {
-      if (smoothPath.length === 0) return null;
+    const getPointOnPath = useCallback(
+      (progressValue) => {
+        if (smoothPath.length === 0) return null;
 
-      const totalLength = smoothPath.reduce((sum, seg) => sum + seg.length, 0);
-      let targetLength = progressValue * totalLength;
+        const totalLength = smoothPath.reduce(
+          (sum, seg) => sum + seg.length,
+          0,
+        );
+        let targetLength = progressValue * totalLength;
 
-      for (const segment of smoothPath) {
-        if (targetLength <= segment.length) {
-          const t = targetLength / segment.length;
-          return bezierPoint(
-            segment.p1,
-            segment.cp1,
-            segment.cp2,
-            segment.p2,
-            t,
-          );
+        for (const segment of smoothPath) {
+          if (targetLength <= segment.length) {
+            const t = targetLength / segment.length;
+            return bezierPoint(
+              segment.p1,
+              segment.cp1,
+              segment.cp2,
+              segment.p2,
+              t,
+            );
+          }
+          targetLength -= segment.length;
         }
-        targetLength -= segment.length;
-      }
 
-      return smoothPath[smoothPath.length - 1].p2;
-    }
+        return smoothPath[smoothPath.length - 1].p2;
+      },
+      [smoothPath],
+    );
 
-    function getDirectionAtPoint(progressValue) {
-      if (smoothPath.length === 0) return 0;
+    const getDirectionAtPoint = useCallback(
+      (progressValue) => {
+        if (smoothPath.length === 0) return 0;
 
-      const epsilon = 0.001;
-      const p1 = getPointOnPath(Math.max(0, progressValue - epsilon));
-      const p2 = getPointOnPath(Math.min(1, progressValue + epsilon));
+        const epsilon = 0.001;
+        const p1 = getPointOnPath(Math.max(0, progressValue - epsilon));
+        const p2 = getPointOnPath(Math.min(1, progressValue + epsilon));
 
-      if (!p1 || !p2) return 0;
+        if (!p1 || !p2) return 0;
 
-      return Math.atan2(p2.y - p1.y, p2.x - p1.x);
-    }
+        return Math.atan2(p2.y - p1.y, p2.x - p1.x);
+      },
+      [smoothPath, getPointOnPath],
+    );
 
     // Draw the sleek animated path
     const drawPath = useCallback(
@@ -348,7 +357,7 @@ const SleekAnimatedPath = memo(
           }
         }
       },
-      [smoothPath, imgWidth, imgHeight],
+      [smoothPath, imgWidth, imgHeight, getDirectionAtPoint, getPointOnPath],
     );
 
     function drawSleekArrow(ctx, x, y, angle) {
@@ -630,7 +639,6 @@ function App() {
   const [showQRScanner, setShowQRScanner] = useState(false);
 
   const imgRef = useRef(null);
-  const lastPathLength = useRef(0);
   const pathCacheRef = useRef(new Map()); // Cache for pathfinding results
 
   // Load roof refs from file on startup, fallback to localStorage
