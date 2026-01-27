@@ -2969,3 +2969,83 @@ input[type="text"]:focus {
     font-size: 1.2rem;
   }
 }
+
+/* Mobile-first responsive styles */
+@media (max-width: 768px) {
+  .main-container {
+    flex-direction: column !important;
+    height: auto !important;
+    min-height: 100vh;
+  }
+
+  .left-sidebar,
+  .right-navbar {
+    width: 100% !important;
+    max-width: 100% !important;
+    height: auto !important;
+    min-height: auto !important;
+    max-height: 40vh; /* Limit sidebar height */
+    overflow-y: auto;
+  }
+
+  .map-area {
+    order: -1; /* Put map FIRST */
+    width: 100% !important;
+    height: 50vh !important; /* Give map fixed height */
+    min-height: 400px;
+    margin-bottom: 20px;
+  }
+
+  .map-container-wrapper {
+    height: 100% !important;
+    width: 100% !important;
+  }
+
+  /* Stack layout vertically */
+  .main-container > * {
+    width: 100% !important;
+    margin-bottom: 15px;
+  }
+
+  /* Hide or minimize less important elements */
+  .quick-guide,
+  .qr-code-info,
+  .nav-stats {
+    display: none;
+  }
+
+  .top-nav {
+    padding: 10px;
+    flex-wrap: wrap;
+  }
+
+  .nav-brand {
+    width: 100%;
+    margin-bottom: 10px;
+  }
+}
+
+/* For very small phones */
+@media (max-width: 480px) {
+  .map-area {
+    height: 45vh !important;
+    min-height: 350px;
+  }
+
+  .left-sidebar,
+  .right-navbar {
+    max-height: 35vh;
+  }
+
+  .sidebar-section h3 {
+    font-size: 14px;
+  }
+
+  .selected-item {
+    padding: 8px;
+  }
+
+  .selected-item-name {
+    font-size: 14px;
+  }
+}

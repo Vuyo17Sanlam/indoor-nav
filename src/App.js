@@ -227,6 +227,35 @@ function App() {
   return (
     <div className="app-wrapper">
       <style>{`
+
+      @media (max-width: 768px) {
+  .main-container {
+    display: flex !important;
+    flex-direction: column !important;
+    height: auto !important;
+  }
+
+  .map-area {
+    order: 1 !important;
+    height: 60vh !important;
+    min-height: 400px !important;
+    width: 100% !important;
+  }
+
+  .left-sidebar {
+    order: 2 !important;
+    width: 100% !important;
+    max-height: 30vh !important;
+    overflow-y: auto !important;
+  }
+
+  .right-navbar {
+    order: 3 !important;
+    width: 100% !important;
+    max-height: 30vh !important;
+    overflow-y: auto !important;
+  }
+}
         .input-section {
           margin-bottom: 16px;
         }
