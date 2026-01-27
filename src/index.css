@@ -2910,3 +2910,62 @@ input[type="text"]:focus {
     user-select: none;
   }
 }
+
+.map-area {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0; /* Important for flexbox sizing */
+}
+
+.map-container-wrapper {
+  flex: 1;
+  position: relative;
+  overflow: auto;
+  min-height: 400px;
+  border-radius: 8px;
+  background: #1f2937;
+}
+
+/* Add media queries for different screen sizes */
+@media (max-width: 1400px) {
+  .main-container {
+    flex-direction: column;
+  }
+
+  .left-sidebar,
+  .right-navbar {
+    width: 100% !important;
+    max-width: 100% !important;
+  }
+
+  .map-area {
+    order: -1; /* Put map at top on mobile */
+    margin-bottom: 20px;
+  }
+}
+
+@media (max-width: 768px) {
+  .map-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+  }
+
+  .map-info {
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+
+  .nav-stats {
+    display: none; /* Hide stats on very small screens */
+  }
+
+  .top-nav {
+    padding: 10px 15px;
+  }
+
+  .nav-brand h1 {
+    font-size: 1.2rem;
+  }
+}
