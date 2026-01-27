@@ -568,7 +568,6 @@ function App() {
 
       <nav className="top-nav">
         <div className="nav-brand">
-          <div className="logo">📍</div>
           <div className="brand-text">
             <h1>SanlamNav</h1>
             <p className="brand-subtitle">Smart Navigation System</p>

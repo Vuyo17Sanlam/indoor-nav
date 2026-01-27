@@ -790,7 +790,7 @@ const MapComponent = memo(
         >
           <img
             ref={imgRef}
-            src="/traced-lines-cropped.png"
+            src="/filled-image-17.png"
             alt="map"
             onLoad={handleImageLoad}
             style={{
