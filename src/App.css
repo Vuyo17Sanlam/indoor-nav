@@ -1037,3 +1037,28 @@ body {
     font-size: 14px;
   }
 }
+/* Prevent iOS zoom on input focus */
+@media screen and (max-width: 768px) {
+  /* Prevent text size adjustment on orientation change */
+  html {
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+  }
+
+  /* Prevent zoom on input focus */
+  input,
+  select,
+  textarea {
+    font-size: 16px !important;
+  }
+
+  /* Disable pull-to-refresh */
+  body {
+    overscroll-behavior-y: contain;
+  }
+
+  /* Prevent highlight on tap */
+  * {
+    -webkit-tap-highlight-color: transparent;
+  }
+}
