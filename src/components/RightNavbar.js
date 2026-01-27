@@ -1,4 +1,5 @@
 import React, { useState, useMemo } from "react";
+import "./RightNavbar.css"; // Optional CSS for styling
 
 const RightNavbar = ({
   activeTab,
@@ -10,8 +11,6 @@ const RightNavbar = ({
   setSelectedStart,
   setSelectedEnd,
   handleRoofRefNavigation,
-  setStart,
-  setEnd,
   setStartNode,
   setEndNode,
   setPath,
@@ -20,12 +19,6 @@ const RightNavbar = ({
   startNode,
   endNode,
   handleNodeClick,
-  start,
-  end,
-  locationsSearch,
-  setLocationsSearch,
-  roofRefSearch,
-  setRoofRefSearch,
 }) => {
   // State for dropdown visibility
   const [showStartOptions, setShowStartOptions] = useState(false);
@@ -90,17 +83,11 @@ const RightNavbar = ({
     return [];
   }, [activeTab, filteredRoofRefs, filteredLocations, endSearch]);
 
-  // Helper function to get coordinates
-  const rowToLetter = (r) => String.fromCharCode(65 + r);
-  const getCoord = (r, c) => `${rowToLetter(r)}${c + 1}`;
-
   // Handle start selection
   const handleStartSelect = (item) => {
     if (activeTab === "roofRef") {
       setStartRoofRef(item);
       setSelectedStart(item);
-      setStart(null);
-      setEnd(null);
       setStartNode(null);
       setEndNode(null);
       setPath([]);
@@ -169,352 +156,209 @@ const RightNavbar = ({
     return "";
   };
 
+  // Get active card title based on tab
+  const getActiveCardTitle = () => {
+    switch (activeTab) {
+      case "roofRef":
+        return "Roof References";
+      case "locations":
+        return "Locations";
+      default:
+        return "";
+    }
+  };
+
+  // Get search placeholder based on tab
+  const getSearchPlaceholder = (type) => {
+    if (activeTab === "roofRef") {
+      return type === "start"
+        ? "Select start roof ref..."
+        : "Select destination roof ref...";
+    } else if (activeTab === "locations") {
+      return type === "start"
+        ? "Select start location..."
+        : "Select destination location...";
+    }
+    return "";
+  };
+
   return (
     <div className="right-sidebar">
-      <div className="sidebar-section">
-        <h3>Navigation Mode</h3>
-        <div className="mode-selector">
-          <button
-            className={`mode-btn ${activeTab === "roofRef" ? "active" : ""}`}
-            onClick={() => setActiveTab("roofRef")}
-          >
-            <span className="mode-icon">🏷️</span>
-            <span>Roof Ref</span>
-          </button>
-          <button
-            className={`mode-btn ${activeTab === "locations" ? "active" : ""}`}
-            onClick={() => setActiveTab("locations")}
-          >
-            <span className="mode-icon">📍</span>
-            <span>Locations</span>
-          </button>
-          <button
-            className={`mode-btn ${activeTab === "grid" ? "active" : ""}`}
-            onClick={() => setActiveTab("grid")}
-          >
-            <span className="mode-icon">🗺️</span>
-            <span>Grid Points</span>
-          </button>
+      {/* Navigation Header */}
+      <div className="sidebar-header">
+        <div className="navigation-controls">
+          <div className="mode-buttons">
+            <button
+              className={`mode-btn ${activeTab === "locations" ? "active" : ""}`}
+              onClick={() => setActiveTab("locations")}
+              title="Locations"
+            >
+              <span className="mode-icon">📍</span>
+              Locations
+            </button>
+            <button
+              className={`mode-btn ${activeTab === "roofRef" ? "active" : ""}`}
+              onClick={() => setActiveTab("roofRef")}
+              title="Roof References"
+            >
+              <span className="mode-icon">🏷️</span>
+              Roof Ref
+            </button>
+          </div>
         </div>
       </div>
 
-      <div className="sidebar-section">
-        <h3>
-          {activeTab === "roofRef"
-            ? "🏷️ Roof References"
-            : activeTab === "locations"
-              ? "📍 Locations"
-              : "🗺️ Grid Points"}
-        </h3>
+      {/* Navigation Card */}
+      <div className="navigation-card">
+        <div className="card-header">
+          <h4 className="card-title">{getActiveCardTitle()}</h4>
+        </div>
 
-        {(activeTab === "roofRef" || activeTab === "locations") && (
-          <div className="search-bars-container">
-            {/* Start Search Bar */}
-            <div
-              className="search-bar-wrapper"
-              style={{ marginBottom: "15px" }}
-            >
-              <label
-                style={{
-                  display: "block",
-                  marginBottom: "5px",
-                  color: "#9ca3af",
-                }}
-              >
-                Current Location
-              </label>
-              <div style={{ position: "relative" }}>
-                <input
-                  type="text"
-                  placeholder={
-                    activeTab === "roofRef"
-                      ? "🔍 Select start roof ref..."
-                      : "🔍 Select start location..."
-                  }
-                  value={getStartDisplayText() || startSearch}
-                  onChange={(e) => setStartSearch(e.target.value)}
-                  onFocus={() => setShowStartOptions(true)}
-                  style={{
-                    width: "100%",
-                    padding: "10px 12px",
-                    paddingRight: "70px",
-                    fontSize: "14px",
-                    border: "1px solid #4b5563",
-                    borderRadius: "6px",
-                    background: "#1f2937",
-                    color: "white",
-                    outline: "none",
-                    boxSizing: "border-box",
-                  }}
-                />
-                {getStartDisplayText() && (
-                  <button
-                    onClick={clearStart}
-                    style={{
-                      position: "absolute",
-                      right: "35px",
-                      top: "50%",
-                      transform: "translateY(-50%)",
-                      background: "transparent",
-                      border: "none",
-                      color: "#9ca3af",
-                      cursor: "pointer",
-                      padding: "5px",
-                    }}
-                  >
-                    ✕
-                  </button>
-                )}
-                <button
-                  onClick={() => setShowStartOptions(!showStartOptions)}
-                  style={{
-                    position: "absolute",
-                    right: "10px",
-                    top: "50%",
-                    transform: "translateY(-50%)",
-                    background: "transparent",
-                    border: "none",
-                    color: "#9ca3af",
-                    cursor: "pointer",
-                    padding: "5px",
-                  }}
-                >
-                  {showStartOptions ? "▲" : "▼"}
-                </button>
-              </div>
+        <div className="search-container">
+          {/* Start Location Search */}
+          <div className="search-group">
+            <label className="search-label">Current Location</label>
+            <SearchInput
+              value={getStartDisplayText() || startSearch}
+              onChange={setStartSearch}
+              onFocus={() => setShowStartOptions(true)}
+              placeholder={getSearchPlaceholder("start")}
+              showClear={!!getStartDisplayText()}
+              onClear={clearStart}
+              showDropdownToggle
+              isDropdownOpen={showStartOptions}
+              onToggleDropdown={() => setShowStartOptions(!showStartOptions)}
+            />
 
-              {/* Start Options Dropdown */}
-              {showStartOptions && (
-                <div
-                  className="options-dropdown"
-                  style={{
-                    position: "absolute",
-                    zIndex: 1000,
-                    width: "100%",
-                    maxHeight: "200px",
-                    overflowY: "auto",
-                    background: "#1f2937",
-                    border: "1px solid #4b5563",
-                    borderRadius: "6px",
-                    marginTop: "5px",
-                    boxShadow: "0 4px 6px rgba(0, 0, 0, 0.1)",
-                  }}
-                >
-                  {getFilteredStartOptions.length > 0 ? (
-                    getFilteredStartOptions.map((item) => (
-                      <div
-                        key={item.code || item.id}
-                        className="option-item"
-                        onClick={() => handleStartSelect(item)}
-                        style={{
-                          padding: "10px 12px",
-                          cursor: "pointer",
-                          borderBottom: "1px solid #374151",
-                          color: "white",
-                          backgroundColor:
-                            (activeTab === "roofRef" &&
-                              startRoofRef?.code === item.code) ||
-                            (activeTab === "locations" &&
-                              startNode?.id === item.id)
-                              ? "#3b82f6"
-                              : "transparent",
-                        }}
-                        onMouseEnter={(e) =>
-                          (e.currentTarget.style.backgroundColor = "#374151")
-                        }
-                        onMouseLeave={(e) => {
-                          if (
-                            activeTab === "roofRef" &&
-                            startRoofRef?.code !== item.code &&
-                            activeTab === "locations" &&
-                            startNode?.id !== item.id
-                          ) {
-                            e.currentTarget.style.backgroundColor =
-                              "transparent";
-                          }
-                        }}
-                      >
-                        <div style={{ fontWeight: "bold" }}>
-                          {item.code || item.name}
-                        </div>
-                        {item.type && (
-                          <div style={{ fontSize: "12px", color: "#9ca3af" }}>
-                            {item.type}
-                          </div>
-                        )}
-                      </div>
-                    ))
-                  ) : (
-                    <div style={{ padding: "10px 12px", color: "#9ca3af" }}>
-                      No options found
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
-
-            {/* End Search Bar */}
-            <div
-              className="search-bar-wrapper"
-              style={{ marginBottom: "15px" }}
-            >
-              <label
-                style={{
-                  display: "block",
-                  marginBottom: "5px",
-                  color: "#9ca3af",
-                }}
-              >
-                Destination
-              </label>
-              <div style={{ position: "relative" }}>
-                <input
-                  type="text"
-                  placeholder={
-                    activeTab === "roofRef"
-                      ? "🔍 Select destination roof ref..."
-                      : "🔍 Select destination location..."
-                  }
-                  value={getEndDisplayText() || endSearch}
-                  onChange={(e) => setEndSearch(e.target.value)}
-                  onFocus={() => setShowEndOptions(true)}
-                  style={{
-                    width: "100%",
-                    padding: "10px 12px",
-                    paddingRight: "70px",
-                    fontSize: "14px",
-                    border: "1px solid #4b5563",
-                    borderRadius: "6px",
-                    background: "#1f2937",
-                    color: "white",
-                    outline: "none",
-                    boxSizing: "border-box",
-                  }}
-                />
-                {getEndDisplayText() && (
-                  <button
-                    onClick={clearEnd}
-                    style={{
-                      position: "absolute",
-                      right: "35px",
-                      top: "50%",
-                      transform: "translateY(-50%)",
-                      background: "transparent",
-                      border: "none",
-                      color: "#9ca3af",
-                      cursor: "pointer",
-                      padding: "5px",
-                    }}
-                  >
-                    ✕
-                  </button>
-                )}
-                <button
-                  onClick={() => setShowEndOptions(!showEndOptions)}
-                  style={{
-                    position: "absolute",
-                    right: "10px",
-                    top: "50%",
-                    transform: "translateY(-50%)",
-                    background: "transparent",
-                    border: "none",
-                    color: "#9ca3af",
-                    cursor: "pointer",
-                    padding: "5px",
-                  }}
-                >
-                  {showEndOptions ? "▲" : "▼"}
-                </button>
-              </div>
-
-              {/* End Options Dropdown */}
-              {showEndOptions && (
-                <div
-                  className="options-dropdown"
-                  style={{
-                    position: "absolute",
-                    zIndex: 1000,
-                    width: "100%",
-                    maxHeight: "200px",
-                    overflowY: "auto",
-                    background: "#1f2937",
-                    border: "1px solid #4b5563",
-                    borderRadius: "6px",
-                    marginTop: "5px",
-                    boxShadow: "0 4px 6px rgba(0, 0, 0, 0.1)",
-                  }}
-                >
-                  {getFilteredEndOptions.length > 0 ? (
-                    getFilteredEndOptions.map((item) => (
-                      <div
-                        key={item.code || item.id}
-                        className="option-item"
-                        onClick={() => handleEndSelect(item)}
-                        style={{
-                          padding: "10px 12px",
-                          cursor: "pointer",
-                          borderBottom: "1px solid #374151",
-                          color: "white",
-                          backgroundColor:
-                            (activeTab === "roofRef" &&
-                              endRoofRef?.code === item.code) ||
-                            (activeTab === "locations" &&
-                              endNode?.id === item.id)
-                              ? "#3b82f6"
-                              : "transparent",
-                        }}
-                        onMouseEnter={(e) =>
-                          (e.currentTarget.style.backgroundColor = "#374151")
-                        }
-                        onMouseLeave={(e) => {
-                          if (
-                            activeTab === "roofRef" &&
-                            endRoofRef?.code !== item.code &&
-                            activeTab === "locations" &&
-                            endNode?.id !== item.id
-                          ) {
-                            e.currentTarget.style.backgroundColor =
-                              "transparent";
-                          }
-                        }}
-                      >
-                        <div style={{ fontWeight: "bold" }}>
-                          {item.code || item.name}
-                        </div>
-                        {item.type && (
-                          <div style={{ fontSize: "12px", color: "#9ca3af" }}>
-                            {item.type}
-                          </div>
-                        )}
-                      </div>
-                    ))
-                  ) : (
-                    <div style={{ padding: "10px 12px", color: "#9ca3af" }}>
-                      No options found
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
+            {showStartOptions && (
+              <SearchDropdown
+                items={getFilteredStartOptions}
+                onSelect={handleStartSelect}
+                getKey={(item) => item.code || item.id}
+                getLabel={(item) => item.code || item.name}
+                getSubLabel={(item) => item.type}
+                activeItem={activeTab === "roofRef" ? startRoofRef : startNode}
+                activeKey={
+                  activeTab === "roofRef" ? startRoofRef?.code : startNode?.id
+                }
+              />
+            )}
           </div>
+
+          {/* End Location Search */}
+          <div className="search-group">
+            <label className="search-label">Destination</label>
+            <SearchInput
+              value={getEndDisplayText() || endSearch}
+              onChange={setEndSearch}
+              onFocus={() => setShowEndOptions(true)}
+              placeholder={getSearchPlaceholder("end")}
+              showClear={!!getEndDisplayText()}
+              onClear={clearEnd}
+              showDropdownToggle
+              isDropdownOpen={showEndOptions}
+              onToggleDropdown={() => setShowEndOptions(!showEndOptions)}
+            />
+
+            {showEndOptions && (
+              <SearchDropdown
+                items={getFilteredEndOptions}
+                onSelect={handleEndSelect}
+                getKey={(item) => item.code || item.id}
+                getLabel={(item) => item.code || item.name}
+                getSubLabel={(item) => item.type}
+                activeItem={activeTab === "roofRef" ? endRoofRef : endNode}
+                activeKey={
+                  activeTab === "roofRef" ? endRoofRef?.code : endNode?.id
+                }
+              />
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// Reusable Search Input Component
+const SearchInput = ({
+  value,
+  onChange,
+  onFocus,
+  placeholder,
+  showClear,
+  onClear,
+  showDropdownToggle,
+  isDropdownOpen,
+  onToggleDropdown,
+}) => {
+  return (
+    <div className="search-input-wrapper">
+      <input
+        type="text"
+        className="search-input"
+        placeholder={placeholder}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        onFocus={onFocus}
+      />
+      <div className="search-input-actions">
+        {showClear && (
+          <button
+            className="search-action-btn clear-btn"
+            onClick={onClear}
+            aria-label="Clear"
+          >
+            ✕
+          </button>
         )}
-
-        {activeTab === "grid" && (
-          <div className="grid-info">
-            <p>Click on any green cell to set a grid point.</p>
-            {start && (
-              <div className="selected-point">
-                <strong>Selected Start:</strong> {getCoord(start[0], start[1])}
-              </div>
-            )}
-            {end && (
-              <div className="selected-point">
-                <strong>Selected End:</strong> {getCoord(end[0], end[1])}
-              </div>
-            )}
-          </div>
+        {showDropdownToggle && (
+          <button
+            className="search-action-btn dropdown-btn"
+            onClick={onToggleDropdown}
+            aria-label="Toggle dropdown"
+          >
+            {isDropdownOpen ? "▲" : "▼"}
+          </button>
         )}
       </div>
+    </div>
+  );
+};
+
+// Reusable Search Dropdown Component
+const SearchDropdown = ({
+  items,
+  onSelect,
+  getKey,
+  getLabel,
+  getSubLabel,
+  activeItem,
+  activeKey,
+}) => {
+  return (
+    <div className="search-dropdown">
+      {items.length > 0 ? (
+        items.map((item) => {
+          const key = getKey(item);
+          const isActive = activeKey === key;
+
+          return (
+            <div
+              key={key}
+              className={`dropdown-item ${isActive ? "active" : ""}`}
+              onClick={() => onSelect(item)}
+            >
+              <div className="dropdown-item-main">{getLabel(item)}</div>
+              {getSubLabel(item) && (
+                <div className="dropdown-item-sub">{getSubLabel(item)}</div>
+              )}
+            </div>
+          );
+        })
+      ) : (
+        <div className="dropdown-empty">No options found</div>
+      )}
     </div>
   );
 };
