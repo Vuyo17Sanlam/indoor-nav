@@ -217,7 +217,10 @@ const RightNavbar = ({
         <div className="search-container">
           {/* Start Location Search */}
           <div className="search-group">
-            <label className="search-label">Current Location</label>
+            <label className="search-label">
+              <span className="label-icon">🎯</span>
+              Current Location
+            </label>
             <SearchInput
               value={getStartDisplayText() || startSearch}
               onChange={setStartSearch}
@@ -247,7 +250,10 @@ const RightNavbar = ({
 
           {/* End Location Search */}
           <div className="search-group">
-            <label className="search-label">Destination</label>
+            <label className="search-label">
+              <span className="label-icon">🚩</span>
+              Destination
+            </label>
             <SearchInput
               value={getEndDisplayText() || endSearch}
               onChange={setEndSearch}
@@ -338,27 +344,29 @@ const SearchDropdown = ({
 }) => {
   return (
     <div className="search-dropdown">
-      {items.length > 0 ? (
-        items.map((item) => {
-          const key = getKey(item);
-          const isActive = activeKey === key;
+      <div className="dropdown-content">
+        {items.length > 0 ? (
+          items.map((item) => {
+            const key = getKey(item);
+            const isActive = activeKey === key;
 
-          return (
-            <div
-              key={key}
-              className={`dropdown-item ${isActive ? "active" : ""}`}
-              onClick={() => onSelect(item)}
-            >
-              <div className="dropdown-item-main">{getLabel(item)}</div>
-              {getSubLabel(item) && (
-                <div className="dropdown-item-sub">{getSubLabel(item)}</div>
-              )}
-            </div>
-          );
-        })
-      ) : (
-        <div className="dropdown-empty">No options found</div>
-      )}
+            return (
+              <div
+                key={key}
+                className={`dropdown-item ${isActive ? "active" : ""}`}
+                onClick={() => onSelect(item)}
+              >
+                <div className="dropdown-item-main">{getLabel(item)}</div>
+                {getSubLabel(item) && (
+                  <div className="dropdown-item-sub">{getSubLabel(item)}</div>
+                )}
+              </div>
+            );
+          })
+        ) : (
+          <div className="dropdown-empty">No options found</div>
+        )}
+      </div>
     </div>
   );
 };

@@ -751,28 +751,30 @@ function App() {
             </h3>
 
             <div className="quick-guide-tips">
-              <ul>
-                <li>
-                  <strong>Double-click</strong> any item to quickly set it as
-                  both start and destination
-                </li>
-                <li>
-                  <strong>Scroll</strong> to zoom in/out on the map
-                </li>
-                <li>
-                  <strong>Click and drag</strong> to pan around the map when
-                  zoomed in
-                </li>
-                <li>
-                  Paths are calculated using the shortest walkable route through
-                  the building
-                </li>
-                <li>
-                  The system automatically optimizes for the most efficient
-                  navigation path
-                </li>
-              </ul>
-            </div>
+  <ul>
+    <li>
+      <strong>Select a Start Point:</strong> Click on your current location or
+      choose it from the list.
+    </li>
+    <li>
+      <strong>Select a Destination:</strong> Click on where you want to go or
+      search for it.
+    </li>
+    <li>
+      <strong>View the Route:</strong> The system will automatically display the
+      best route between the two points.
+    </li>
+    <li>
+      <strong>Follow the Path:</strong> The highlighted line shows the recommended
+      walking direction.
+    </li>
+    <li>
+      <strong>Update Anytime:</strong> Change your start or destination to
+      recalculate a new route instantly.
+    </li>
+  </ul>
+</div>
+
           </div>
         </div>
 
